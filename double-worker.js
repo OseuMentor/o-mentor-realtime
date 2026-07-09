@@ -56,7 +56,7 @@ class DoubleWorker {
 
   _connect() {
     try {
-      this.socket = makeConnection({ type: 'doubles' });
+      this.socket = makeConnection({ web: 'blaze', type: 'doubles' });
 
       this.socket.ev.on('double.tick', (msg) => this._handleTick(msg));
 
