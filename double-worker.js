@@ -56,7 +56,7 @@ class DoubleWorker {
 
   _connect() {
     try {
-      this.socket = makeConnection({ web: 'blaze', type: 'doubles' });
+      this.socket = makeConnection({ web: 'blaze', type: 'doubles', url: 'wss://api-v2.blaze.com/replication/?EIO=3&transport=websocket' });
 
       this.socket.ev.on('double.tick', (msg) => this._handleTick(msg));
 
