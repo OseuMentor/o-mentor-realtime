@@ -54,9 +54,13 @@ class DoubleWorker {
     if (this.socket && this.socket.close) this.socket.close();
   }
 
-  _connect() {
+  async _connect() {
     try {
-      this.socket = makeConnection({ web: 'blaze', type: 'doubles', url: 'wss://api-v2.blaze.com/replication/?EIO=3&transport=websocket' });
+      this.socket = await makeConnection({
+        web: 'blaze',
+        type: 'doubles',
+        url: 'wss://api-v2.blaze.com/replication/?EIO=3&transport=websocket'
+      });
 
       this.socket.ev.on('double.tick', (msg) => this._handleTick(msg));
 
@@ -65,7 +69,6 @@ class DoubleWorker {
         this._scheduleReconnect();
       });
 
-      // Se a lib expuser algum evento de erro/abertura, aproveitamos também
       if (this.socket.ev.on) {
         this.socket.ev.on('open', () => {
           this.reconnectAttempt = 0;
@@ -74,6 +77,7 @@ class DoubleWorker {
         });
       }
     } catch (err) {
+      console.error(`[worker] falha ao conectar: ${err.message}`);
       this._setConnected(false, `falha ao conectar: ${err.message}`);
       this._scheduleReconnect();
     }
