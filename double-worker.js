@@ -91,6 +91,15 @@ class DoubleWorker {
         transports: ['websocket'],
         forceNew: true,
         reconnection: false, // controlamos o reconnect na mão, com backoff próprio
+        extraHeaders: {
+          // A Cloudflare (visível nos headers de resposta como cf-ray)
+          // provavelmente rejeita handshakes que não pareçam vir de um
+          // navegador de verdade. O socket.io-client no Node não manda
+          // esses headers sozinho, diferente do browser — por isso
+          // setamos na mão, espelhando o que o DevTools mostrou.
+          Origin: 'https://blaze.bet.br',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36',
+        },
       });
 
       this.socket.on('connect', () => {
