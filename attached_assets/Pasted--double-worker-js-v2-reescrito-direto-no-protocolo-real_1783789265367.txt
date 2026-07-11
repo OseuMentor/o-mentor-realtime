@@ -1,0 +1,219 @@
+/**
+ * double-worker.js  (v2 — reescrito direto no protocolo real)
+ * ---------------------------------------------------------
+ * Worker isolado responsável por UMA coisa só: manter uma conexão
+ * com o double da Blaze e entregar cada resultado FECHADO já
+ * normalizado no formato que o resto do "O Mentor" espera.
+ *
+ * ------------------------------------------------------------
+ * HISTÓRICO — por que essa versão existe:
+ * A v1 usava a lib não-oficial @viniciusgdr/Blaze, que se mostrou
+ * desatualizada em vários pontos (domínio antigo, nomes de evento
+ * errados, parâmetro obrigatório não documentado). Em vez de seguir
+ * corrigindo camada por camada de uma lib de terceiros sem manutenção
+ * ativa, o protocolo real foi mapeado à mão via DevTools (aba
+ * Network → WS, no próprio blaze.bet.br) e é isso que este arquivo
+ * implementa diretamente, usando socket.io-client@2 (Engine.IO v3 /
+ * Socket.IO v2 — o mesmo protocolo que o servidor da Blaze fala).
+ *
+ * O QUE FOI CONFIRMADO NO DEVTOOLS (10-11/jul/2026):
+ * - URL:      wss://api-gaming.blaze.bet.br
+ * - Sala:     double_room_1 (via cmd "subscribe")
+ * - Evento:   socket.on('data', msg) — msg.id === 'double.tick' é o
+ *             que nos interessa; outros valores de msg.id existem
+ *             para outros jogos/sinais e são ignorados aqui.
+ * - Ciclo de status dentro de payload, MESMO id de rodada do início
+ *   ao fim:
+ *     "waiting"   -> contagem regressiva, color/roll ainda null
+ *     "rolling"   -> giro em andamento, color/roll já definidos
+ *     "complete"  -> resultado fechado — É ESSE O GATILHO que usamos
+ * - Mapeamento de cor (confirmado cruzando com apostas ganhadoras
+ *   reais no payload.bets):
+ *     color: 0 -> branco   (equivale a roll === 0)
+ *     color: 1 -> vermelho (equivale a roll 1-7)
+ *     color: 2 -> preto    (equivale a roll 8-14)
+ *   Usamos o roll pra recalcular a cor (mais robusto que confiar
+ *   cegamente no campo color, caso ele fique ausente em algum tick).
+ *
+ * IMPORTANTE — risco já sinalizado no projeto:
+ * Isso é engenharia reversa de um endpoint não documentado
+ * oficialmente pela Blaze. Pode quebrar de novo sem aviso (como já
+ * aconteceu uma vez) e pode entrar em conflito com os Termos de Uso
+ * deles. Por isso este worker SEMPRE avisa quando perde conexão,
+ * pra você poder degradar pro modo manual automaticamente na
+ * interface.
+ *
+ * Dependência:
+ *   npm i socket.io-client@2
+ * (mesma lib que o realtime-gateway.js já usa do lado servidor pro
+ * seu próprio WebSocket — aqui usamos ela como CLIENTE, pra falar
+ * com o servidor da Blaze.)
+ */
+
+const io = require('socket.io-client');
+
+// ---------- Config ----------
+const WS_URL = 'wss://api-gaming.blaze.bet.br';
+const ROOM = 'double_room_1';
+const RECONNECT_BASE_DELAY_MS = 2000;   // primeira tentativa: 2s
+const RECONNECT_MAX_DELAY_MS = 60000;   // nunca espera mais que 1min entre tentativas
+const STALE_AFTER_MS = 90000;           // uma rodada de Double dura ~30-45s; 90s sem nenhum
+                                         // tick "complete" já é sinal de instabilidade
+
+class DoubleWorker {
+  /**
+   * @param {Object} opts
+   * @param {(result: {number:number, color:'red'|'black'|'white', timestamp:string, raw:any}) => void} opts.onResult
+   * @param {(status: {connected:boolean, reason?:string}) => void} opts.onStatusChange
+   */
+  constructor({ onResult, onStatusChange }) {
+    this.onResult = onResult || (() => {});
+    this.onStatusChange = onStatusChange || (() => {});
+    this.socket = null;
+    this.reconnectAttempt = 0;
+    this.connected = false;
+    this.staleTimer = null;
+    this.lastSeenRoundId = null; // evita processar o mesmo "complete" duas vezes
+  }
+
+  start() {
+    this._connect();
+  }
+
+  stop() {
+    clearTimeout(this.staleTimer);
+    if (this.socket) this.socket.close();
+  }
+
+  _connect() {
+    try {
+      this.socket = io(WS_URL, {
+        transports: ['websocket'],
+        forceNew: true,
+        reconnection: false, // controlamos o reconnect na mão, com backoff próprio
+      });
+
+      this.socket.on('connect', () => {
+        this.reconnectAttempt = 0;
+        this._setConnected(true);
+        this._armStaleTimer();
+        // Inscreve na sala do Double. Sem token de autenticação por
+        // enquanto — resultado do jogo é dado público (o site mostra
+        // pra qualquer visitante, logado ou não). Se em algum momento
+        // parar de chegar tick, o mais provável é precisar reintroduzir
+        // um "authenticate" com token de sessão aqui.
+        this.socket.emit('cmd', { id: 'subscribe', payload: { room: ROOM } });
+      });
+
+      this.socket.on('data', (msg) => this._handleTick(msg));
+
+      this.socket.on('disconnect', (reason) => {
+        this._setConnected(false, `conexão encerrada (${reason})`);
+        this._scheduleReconnect();
+      });
+
+      this.socket.on('connect_error', (err) => {
+        console.error(`[worker] erro de conexão: ${err.message}`);
+        this._setConnected(false, `erro de conexão: ${err.message}`);
+        this._scheduleReconnect();
+      });
+    } catch (err) {
+      console.error(`[worker] falha ao conectar: ${err.message}`);
+      this._setConnected(false, `falha ao conectar: ${err.message}`);
+      this._scheduleReconnect();
+    }
+  }
+
+  _scheduleReconnect() {
+    const delay = Math.min(
+      RECONNECT_BASE_DELAY_MS * 2 ** this.reconnectAttempt,
+      RECONNECT_MAX_DELAY_MS
+    );
+    this.reconnectAttempt++;
+    setTimeout(() => this._connect(), delay);
+  }
+
+  _armStaleTimer() {
+    clearTimeout(this.staleTimer);
+    this.staleTimer = setTimeout(() => {
+      this._setConnected(false, 'sem resultados fechados há muito tempo (possível instabilidade)');
+    }, STALE_AFTER_MS);
+  }
+
+  _setConnected(connected, reason) {
+    if (this.connected !== connected) {
+      this.connected = connected;
+      this.onStatusChange({ connected, reason });
+    }
+  }
+
+  _handleTick(msg) {
+    // O servidor manda "data" pra vários tipos de evento (double.tick,
+    // e provavelmente outros jogos/sinais). Só nos interessa esse.
+    if (!msg || msg.id !== 'double.tick') return;
+
+    const payload = msg.payload;
+    if (!payload) return;
+
+    // waiting / rolling não são o gatilho — só "complete" é o
+    // resultado fechado de verdade.
+    if (payload.status !== 'complete') return;
+
+    // Evita duplicar o mesmo resultado caso o servidor reenvie o
+    // mesmo tick "complete" mais de uma vez antes do próximo round
+    // começar (já vimos isso acontecer no protocolo bruto).
+    if (payload.id === this.lastSeenRoundId) return;
+    this.lastSeenRoundId = payload.id;
+
+    this._setConnected(true);
+    this._armStaleTimer();
+
+    const normalized = this._normalize(payload);
+    if (normalized) this.onResult(normalized);
+  }
+
+  /**
+   * Isola a fragilidade de formato do payload aqui — se a Blaze mudar
+   * de novo, é só esse método que precisa ser ajustado.
+   */
+  _normalize(payload) {
+    const roll = payload.roll;
+    if (roll === undefined || roll === null) return null;
+
+    let color;
+    if (roll === 0) color = 'white';
+    else if (roll >= 1 && roll <= 7) color = 'red';
+    else color = 'black';
+
+    return {
+      number: roll,
+      color,
+      timestamp: payload.updated_at || payload.created_at || new Date().toISOString(),
+      raw: payload,
+    };
+  }
+}
+
+module.exports = { DoubleWorker };
+
+// ---------- Exemplo de uso ----------
+// Rode este arquivo direto (node double-worker.js) pra testar isolado,
+// antes de plugar no seu backend/banco de dados real.
+if (require.main === module) {
+  const worker = new DoubleWorker({
+    onResult: (r) => {
+      console.log(`[resultado] cor=${r.color} numero=${r.number} em ${r.timestamp}`);
+      // TODO: aqui é onde você chama sua função de salvar no banco,
+      // ex: await db.results.insert(r)
+    },
+    onStatusChange: (s) => {
+      if (s.connected) {
+        console.log('[status] conectado ✅');
+      } else {
+        console.warn(`[status] desconectado ⚠️  motivo: ${s.reason}`);
+      }
+    },
+  });
+
+  worker.start();
+}
