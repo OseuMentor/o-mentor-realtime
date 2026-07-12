@@ -29,14 +29,17 @@
  *     presente, mas quem decide se pode emitir o alerta pro usuário
  *     considerando o limite de frequência é uma camada acima daqui
  *     (ver nota "requiresExternalCheck" no pattern-engine.js).
- *   - Não persiste no banco — isso é responsabilidade de quem
- *     estiver ouvindo os resultados do double-worker antes de
- *     chegar aqui (ou você adiciona um listener adicional lá).
+ *   - A gravação em banco (persistence.js) é acionada por aqui a cada
+ *     resultado novo, mas toda a lógica de banco fica isolada nesse
+ *     outro arquivo — o gateway só chama saveResult() e segue em
+ *     frente, nunca espera ou depende do banco pra continuar
+ *     funcionando em tempo real.
  */
 
 const { WebSocketServer } = require('ws');
 const { DoubleWorker } = require('./double-worker');
 const { analyzeAll } = require('./pattern-engine');
+const persistence = require('./persistence');
 
 const WINDOWS = { tendencia: 100, mini: 50, micro: 16 };
 const BUFFER_SIZE = 100; // igual à maior janela (Tendência)
@@ -55,7 +58,8 @@ class RealtimeGateway {
     });
   }
 
-  start() {
+  async start() {
+    await persistence.initDb();
     this.worker.start();
     console.log(`[gateway] WebSocket ouvindo na porta ${this.wss.options.port}`);
   }
@@ -82,6 +86,11 @@ class RealtimeGateway {
   _handleNewResult(result) {
     this.buffer.push(result);
     if (this.buffer.length > BUFFER_SIZE) this.buffer.shift();
+
+    // Fire-and-forget: a gravação no banco nunca deve atrasar nem
+    // quebrar o broadcast em tempo real. Erros já são tratados e
+    // logados dentro do próprio persistence.js.
+    persistence.saveResult(result);
 
     const analysis = analyzeAll(this.buffer);
 
@@ -158,5 +167,8 @@ if (require.main === module) {
     }
   };
 
-  gateway.start();
+  gateway.start().catch((err) => {
+    console.error(`[gateway] falha ao iniciar: ${err.message}`);
+    process.exit(1);
+  });
 }
