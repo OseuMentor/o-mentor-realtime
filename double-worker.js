@@ -1,64 +1,65 @@
 /**
- * double-worker.js  (v2 — reescrito direto no protocolo real)
+ * double-worker.js  (v3 — TipMiner via SSE)
  * ---------------------------------------------------------
  * Worker isolado responsável por UMA coisa só: manter uma conexão
- * com o double da Blaze e entregar cada resultado FECHADO já
- * normalizado no formato que o resto do "O Mentor" espera.
+ * de dados em tempo real do Double e entregar cada resultado FECHADO
+ * já normalizado no formato que o resto do "O Mentor" espera.
  *
  * ------------------------------------------------------------
- * HISTÓRICO — por que essa versão existe:
- * A v1 usava a lib não-oficial @viniciusgdr/Blaze, que se mostrou
- * desatualizada em vários pontos (domínio antigo, nomes de evento
- * errados, parâmetro obrigatório não documentado). Em vez de seguir
- * corrigindo camada por camada de uma lib de terceiros sem manutenção
- * ativa, o protocolo real foi mapeado à mão via DevTools (aba
- * Network → WS, no próprio blaze.bet.br) e é isso que este arquivo
- * implementa diretamente, usando socket.io-client@2 (Engine.IO v3 /
- * Socket.IO v2 — o mesmo protocolo que o servidor da Blaze fala).
+ * HISTÓRICO — por que essa é a v3:
+ * v1: lib @viniciusgdr/Blaze — desatualizada (domínio, eventos,
+ *     parâmetro obrigatório faltando). Corrigimos tudo isso.
+ * v2: protocolo Socket.IO direto na Blaze (wss://api-gaming.blaze.
+ *     bet.br), mapeado à mão via DevTools. Funcionou até o handshake,
+ *     mas a Cloudflare da Blaze rejeita a conexão por fingerprint
+ *     (não é falta de header — é detecção de que não é um Chrome
+ *     de verdade). Contornar isso exigiria rodar um navegador headless
+ *     de verdade (Puppeteer/Playwright), o que é pesado, frágil e
+ *     escala o nível de risco do projeto.
+ * v3 (esta): em vez de insistir na Blaze, usamos o TipMiner como
+ *     fonte — especificamente o endpoint público de Server-Sent
+ *     Events (SSE) que alimenta as notificações ao vivo do site
+ *     deles. Mapeado à mão via DevTools (12/jul/2026):
  *
- * O QUE FOI CONFIRMADO NO DEVTOOLS (10-11/jul/2026):
- * - URL:      wss://api-gaming.blaze.bet.br
- * - Sala:     double_room_1 (via cmd "subscribe")
- * - Evento:   socket.on('data', msg) — msg.id === 'double.tick' é o
- *             que nos interessa; outros valores de msg.id existem
- *             para outros jogos/sinais e são ignorados aqui.
- * - Ciclo de status dentro de payload, MESMO id de rodada do início
- *   ao fim:
- *     "waiting"   -> contagem regressiva, color/roll ainda null
- *     "rolling"   -> giro em andamento, color/roll já definidos
- *     "complete"  -> resultado fechado — É ESSE O GATILHO que usamos
- * - Mapeamento de cor (confirmado cruzando com apostas ganhadoras
- *   reais no payload.bets):
- *     color: 0 -> branco   (equivale a roll === 0)
- *     color: 1 -> vermelho (equivale a roll 1-7)
- *     color: 2 -> preto    (equivale a roll 8-14)
- *   Usamos o roll pra recalcular a cor (mais robusto que confiar
- *   cegamente no campo color, caso ele fique ausente em algum tick).
+ *       GET https://api.core.public.tipminer.com/v1/double/rounds/
+ *           6ee2f33f-7dbf-40ae-b01c-b05368c806ba/live
+ *       Accept: text/event-stream
  *
- * IMPORTANTE — risco já sinalizado no projeto:
- * Isso é engenharia reversa de um endpoint não documentado
- * oficialmente pela Blaze. Pode quebrar de novo sem aviso (como já
- * aconteceu uma vez) e pode entrar em conflito com os Termos de Uso
- * deles. Por isso este worker SEMPRE avisa quando perde conexão,
- * pra você poder degradar pro modo manual automaticamente na
- * interface.
+ *     Esse endpoint NÃO pediu token de autenticação nos testes (ao
+ *     contrário de /history e /types-per-hour, que exigem Bearer).
+ *     Formato dos eventos SSE:
+ *       - evento nomeado "heartbeat": só sinal de vida, ex.
+ *         {"latest_external_id":"...","latest_uuid":"..."}
+ *       - evento default "message": resultado da rodada, ex.
+ *         {"uuid":"...", "type":"DOUBLE"|"DEFAULT", "result":8,
+ *          "instant":"2026-07-12T12:39:21.573Z"}
+ *     O campo "result" é o número que caiu (0-14). Cor é recalculada
+ *     por nós (0=branco, 1-7=vermelho, 8-14=preto), igual sempre.
+ *     "type" não parece correlacionar com cor — ignorado por ora.
+ *
+ * IMPORTANTE — risco já sinalizado no projeto, ainda mais relevante
+ * aqui: este é um endpoint não documentado de um agregador terceiro
+ * (TipMiner), não da própria Blaze. Pode mudar de formato ou passar
+ * a exigir autenticação a qualquer momento, sem aviso. O worker
+ * sempre avisa quando perde conexão, pra liberar o modo manual.
+ *
+ * O ID da sala (6ee2f33f-7dbf-40ae-b01c-b05368c806ba) parece ser fixo
+ * para "Double da Blaze" dentro do TipMiner — se um dia parar de
+ * funcionar, vale reconferir se esse UUID mudou (o TipMiner cataloga
+ * vários cassinos/jogos, cada um com seu próprio UUID de sala).
  *
  * Dependência:
- *   npm i socket.io-client@2
- * (mesma lib que o realtime-gateway.js já usa do lado servidor pro
- * seu próprio WebSocket — aqui usamos ela como CLIENTE, pra falar
- * com o servidor da Blaze.)
+ *   npm i eventsource
  */
 
-const io = require('socket.io-client');
+const { EventSource } = require('eventsource');
 
 // ---------- Config ----------
-const WS_URL = 'wss://api-gaming.blaze.bet.br';
-const ROOM = 'double_room_1';
-const RECONNECT_BASE_DELAY_MS = 2000;   // primeira tentativa: 2s
-const RECONNECT_MAX_DELAY_MS = 60000;   // nunca espera mais que 1min entre tentativas
-const STALE_AFTER_MS = 90000;           // uma rodada de Double dura ~30-45s; 90s sem nenhum
-                                         // tick "complete" já é sinal de instabilidade
+const ROUND_ID = '6ee2f33f-7dbf-40ae-b01c-b05368c806ba'; // sala "Double" no TipMiner
+const LIVE_URL = `https://api.core.public.tipminer.com/v1/double/rounds/${ROUND_ID}/live`;
+const RECONNECT_BASE_DELAY_MS = 2000;
+const RECONNECT_MAX_DELAY_MS = 60000;
+const STALE_AFTER_MS = 90000; // ~90s sem nenhum evento (nem heartbeat) = conexão suspeita
 
 class DoubleWorker {
   /**
@@ -69,11 +70,11 @@ class DoubleWorker {
   constructor({ onResult, onStatusChange }) {
     this.onResult = onResult || (() => {});
     this.onStatusChange = onStatusChange || (() => {});
-    this.socket = null;
+    this.source = null;
     this.reconnectAttempt = 0;
     this.connected = false;
     this.staleTimer = null;
-    this.lastSeenRoundId = null; // evita processar o mesmo "complete" duas vezes
+    this.lastSeenUuid = null; // evita processar o mesmo resultado duas vezes
   }
 
   start() {
@@ -82,50 +83,47 @@ class DoubleWorker {
 
   stop() {
     clearTimeout(this.staleTimer);
-    if (this.socket) this.socket.close();
+    if (this.source) this.source.close();
   }
 
   _connect() {
     try {
-      this.socket = io(WS_URL, {
-        transports: ['websocket'],
-        forceNew: true,
-        reconnection: false, // controlamos o reconnect na mão, com backoff próprio
-        extraHeaders: {
-          // A Cloudflare (visível nos headers de resposta como cf-ray)
-          // provavelmente rejeita handshakes que não pareçam vir de um
-          // navegador de verdade. O socket.io-client no Node não manda
-          // esses headers sozinho, diferente do browser — por isso
-          // setamos na mão, espelhando o que o DevTools mostrou.
-          Origin: 'https://blaze.bet.br',
+      this.source = new EventSource(LIVE_URL, {
+        headers: {
+          Accept: 'text/event-stream',
+          Origin: 'https://www.tipminer.com',
+          Referer: 'https://www.tipminer.com/',
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36',
         },
       });
 
-      this.socket.on('connect', () => {
+      this.source.onopen = () => {
         this.reconnectAttempt = 0;
         this._setConnected(true);
         this._armStaleTimer();
-        // Inscreve na sala do Double. Sem token de autenticação por
-        // enquanto — resultado do jogo é dado público (o site mostra
-        // pra qualquer visitante, logado ou não). Se em algum momento
-        // parar de chegar tick, o mais provável é precisar reintroduzir
-        // um "authenticate" com token de sessão aqui.
-        this.socket.emit('cmd', { id: 'subscribe', payload: { room: ROOM } });
+      };
+
+      // Evento default do SSE (sem "event:" nomeado) — é o resultado da rodada.
+      this.source.onmessage = (evt) => this._handleMessage(evt);
+
+      // Evento nomeado "heartbeat" — só sinal de vida, mantém o stale timer
+      // armado mas não gera resultado nenhum.
+      this.source.addEventListener('heartbeat', () => {
+        this._setConnected(true);
+        this._armStaleTimer();
       });
 
-      this.socket.on('data', (msg) => this._handleTick(msg));
-
-      this.socket.on('disconnect', (reason) => {
-        this._setConnected(false, `conexão encerrada (${reason})`);
+      this.source.onerror = (err) => {
+        // A lib eventsource tenta reconectar sozinha por padrão, mas
+        // preferimos controlar isso na mão pra manter o mesmo padrão
+        // de backoff usado no resto do projeto — fechamos e agendamos
+        // nosso próprio retry.
+        const reason = err && err.message ? err.message : 'erro na conexão SSE';
+        console.error(`[worker] erro SSE: ${reason}`);
+        this._setConnected(false, reason);
+        if (this.source) this.source.close();
         this._scheduleReconnect();
-      });
-
-      this.socket.on('connect_error', (err) => {
-        console.error(`[worker] erro de conexão: ${err.message}`);
-        this._setConnected(false, `erro de conexão: ${err.message}`);
-        this._scheduleReconnect();
-      });
+      };
     } catch (err) {
       console.error(`[worker] falha ao conectar: ${err.message}`);
       this._setConnected(false, `falha ao conectar: ${err.message}`);
@@ -145,7 +143,9 @@ class DoubleWorker {
   _armStaleTimer() {
     clearTimeout(this.staleTimer);
     this.staleTimer = setTimeout(() => {
-      this._setConnected(false, 'sem resultados fechados há muito tempo (possível instabilidade)');
+      this._setConnected(false, 'sem nenhum evento (nem heartbeat) há muito tempo (possível instabilidade)');
+      if (this.source) this.source.close();
+      this._scheduleReconnect();
     }, STALE_AFTER_MS);
   }
 
@@ -156,23 +156,22 @@ class DoubleWorker {
     }
   }
 
-  _handleTick(msg) {
-    // O servidor manda "data" pra vários tipos de evento (double.tick,
-    // e provavelmente outros jogos/sinais). Só nos interessa esse.
-    if (!msg || msg.id !== 'double.tick') return;
+  _handleMessage(evt) {
+    let payload;
+    try {
+      payload = JSON.parse(evt.data);
+    } catch (e) {
+      return; // mensagem que não é JSON válido, ignora
+    }
 
-    const payload = msg.payload;
-    if (!payload) return;
+    // Mensagens de heartbeat às vezes chegam sem "event:" explícito
+    // dependendo de como o servidor manda — filtramos aqui também,
+    // por segurança, checando se tem "result" de verdade.
+    if (payload.result === undefined || payload.result === null) return;
 
-    // waiting / rolling não são o gatilho — só "complete" é o
-    // resultado fechado de verdade.
-    if (payload.status !== 'complete') return;
-
-    // Evita duplicar o mesmo resultado caso o servidor reenvie o
-    // mesmo tick "complete" mais de uma vez antes do próximo round
-    // começar (já vimos isso acontecer no protocolo bruto).
-    if (payload.id === this.lastSeenRoundId) return;
-    this.lastSeenRoundId = payload.id;
+    // Evita duplicar o mesmo resultado.
+    if (payload.uuid && payload.uuid === this.lastSeenUuid) return;
+    this.lastSeenUuid = payload.uuid;
 
     this._setConnected(true);
     this._armStaleTimer();
@@ -182,11 +181,11 @@ class DoubleWorker {
   }
 
   /**
-   * Isola a fragilidade de formato do payload aqui — se a Blaze mudar
-   * de novo, é só esse método que precisa ser ajustado.
+   * Isola a fragilidade de formato do payload aqui — se o TipMiner
+   * mudar de novo, é só esse método que precisa ser ajustado.
    */
   _normalize(payload) {
-    const roll = payload.roll;
+    const roll = payload.result;
     if (roll === undefined || roll === null) return null;
 
     let color;
@@ -197,7 +196,7 @@ class DoubleWorker {
     return {
       number: roll,
       color,
-      timestamp: payload.updated_at || payload.created_at || new Date().toISOString(),
+      timestamp: payload.instant || new Date().toISOString(),
       raw: payload,
     };
   }

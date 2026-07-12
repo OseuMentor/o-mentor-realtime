@@ -15,6 +15,7 @@
     "typescript": "^7.0.2"
   },
   "dependencies": {
+    "eventsource": "^4.1.0",
     "socket.io-client": "^2.5.0",
     "ws": "^8.21.0"
   }
