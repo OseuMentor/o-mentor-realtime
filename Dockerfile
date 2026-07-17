@@ -2,7 +2,7 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-RUN npm install -g npm@latest
+RUN npm install -g npm@10.9.0
 
 COPY package.json package-lock.json ./
 
