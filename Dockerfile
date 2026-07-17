@@ -2,9 +2,9 @@ FROM node:20-bullseye-slim
 
 WORKDIR /app
 
-COPY package.json package-lock.json ./
+COPY package.json ./
 
-RUN npm install --omit=dev --no-audit --no-fund
+RUN yarn install --production --network-timeout 600000
 
 COPY . .
 
