@@ -1,7 +1,8 @@
 {
-  "name": "o-mentor-realtime",
+  "name": "workspace",
   "version": "1.0.0",
   "main": "double-worker.js",
+  "license": "ISC",
   "engines": {
     "node": "20.x"
   },
