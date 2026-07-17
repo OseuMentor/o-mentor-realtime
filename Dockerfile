@@ -1,8 +1,6 @@
-FROM node:20-alpine
+FROM node:20-bullseye-slim
 
 WORKDIR /app
-
-RUN npm install -g npm@10.9.0
 
 COPY package.json package-lock.json ./
 
