@@ -16,6 +16,19 @@ HEADERS = {
     "Referer": "https://www.tipminer.com/",
 }
 
+PROXY_HOST = os.environ.get("PROXY_HOST")
+PROXY_PORT = os.environ.get("PROXY_PORT")
+PROXY_USER = os.environ.get("PROXY_USER")
+PROXY_PASS = os.environ.get("PROXY_PASS")
+
+PROXIES = None
+if PROXY_HOST and PROXY_PORT and PROXY_USER and PROXY_PASS:
+    proxy_url = f"http://{PROXY_USER}:{PROXY_PASS}@{PROXY_HOST}:{PROXY_PORT}"
+    PROXIES = {"http": proxy_url, "https": proxy_url}
+    print("[bridge] proxy configurado, usando conexao via proxy residencial.")
+else:
+    print("[bridge] nenhum proxy configurado, conectando direto.")
+
 
 def forward_result(payload):
     try:
@@ -41,6 +54,7 @@ def run():
                     impersonate="chrome124",
                     stream=True,
                     timeout=None,
+                    proxies=PROXIES,
                 )
                 print(f"[bridge] status HTTP recebido: {resp.status_code}")
                 if resp.status_code != 200:
