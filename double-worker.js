@@ -88,13 +88,22 @@ class DoubleWorker {
 
   _connect() {
     try {
+      const customHeaders = {
+        Accept: 'text/event-stream',
+        Origin: 'https://www.tipminer.com',
+        Referer: 'https://www.tipminer.com/',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36',
+      };
+
       this.source = new EventSource(LIVE_URL, {
-        headers: {
-          Accept: 'text/event-stream',
-          Origin: 'https://www.tipminer.com',
-          Referer: 'https://www.tipminer.com/',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36',
-        },
+        fetch: (input, init) =>
+          fetch(input, {
+            ...init,
+            headers: {
+              ...(init.headers || {}),
+              ...customHeaders,
+            },
+          }),
       });
 
       this.source.onopen = () => {
