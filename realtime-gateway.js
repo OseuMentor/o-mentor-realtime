@@ -1,75 +1,95 @@
 /**
  * realtime-gateway.js
  * ---------------------------------------------------------
- * Ponte entre o double-worker (fonte de dados) e a Tela Início
- * (frontend). Responsabilidades:
+ * v2: além do WebSocket para o frontend, agora expõe um endpoint
+ * HTTP interno (/internal/ingest) para receber resultados vindos
+ * do tipminer-bridge (serviço em Python), já que a conexão SSE
+ * direta do double-worker.js está sendo bloqueada quando parte de
+ * dentro do Railway (fingerprint anti-bot do TipMiner).
  *
- *   1. Manter um buffer em memória com os últimos N resultados
- *      (N = 100, suficiente pra Tendência/Mini/Micro).
- *   2. Recalcular Tendência (100) / Mini (50) / Micro (16) a cada
- *      resultado novo — cálculo leve, pode ser em tempo real.
- *   3. Rodar o pattern-engine (analyzeAll) a cada resultado novo,
- *      pra saber o status das 14 estratégias + a confluência atual.
- *      Também é cálculo leve (14 checagens simples por resultado),
- *      então não precisa ser em lote como o ranking da Estatísticas.
- *   4. Transmitir (broadcast) cada resultado + trends + status das
- *      estratégias pra todos os clientes conectados via WebSocket.
- *   5. Repassar o status de conexão do worker (conectado/caiu),
- *      pro frontend acionar o aviso de modo manual automaticamente.
- *
- * O que este arquivo NÃO faz (de propósito, por decisão já tomada):
- *   - Não calcula ranking de estratégias por % de assertividade nem
- *     peso adaptativo — isso é lote/5min e mora num job separado
- *     (ex: statsBatchJob.js), que grava o resultado em algum lugar
- *     (banco/cache) e expõe via REST. Esse job também não devia usar
- *     main.js na próxima rota — mantemos separado pra não misturar
- *     tempo-real com lote.
- *   - Não calcula frequência de entradas (ex: limite de 2x/hora do
- *     Number 3) — o pattern-engine sinaliza quando o PADRÃO está
- *     presente, mas quem decide se pode emitir o alerta pro usuário
- *     considerando o limite de frequência é uma camada acima daqui
- *     (ver nota "requiresExternalCheck" no pattern-engine.js).
- *   - A gravação em banco (persistence.js) é acionada por aqui a cada
- *     resultado novo, mas toda a lógica de banco fica isolada nesse
- *     outro arquivo — o gateway só chama saveResult() e segue em
- *     frente, nunca espera ou depende do banco pra continuar
- *     funcionando em tempo real.
+ * O double-worker.js fica preservado no repositório como fallback
+ * documentado, mas não é mais iniciado por padrão.
  */
 
+const http = require('http');
 const { WebSocketServer } = require('ws');
-const { DoubleWorker } = require('./double-worker');
 const { analyzeAll } = require('./pattern-engine');
 const persistence = require('./persistence');
 
 const WINDOWS = { tendencia: 100, mini: 50, micro: 16 };
-const BUFFER_SIZE = 100; // igual à maior janela (Tendência)
+const BUFFER_SIZE = 100;
+const PORT = process.env.PORT || 8081;
+const INGEST_SECRET = process.env.INGEST_SECRET || '';
 
 class RealtimeGateway {
-  constructor({ port = 8081 } = {}) {
-    this.wss = new WebSocketServer({ port });
-    this.buffer = []; // guarda só os últimos BUFFER_SIZE resultados
-    this.lastStatus = { connected: false, reason: 'iniciando' };
+  constructor({ port = PORT } = {}) {
+    this.buffer = [];
+    this.lastStatus = { connected: false, reason: 'aguardando primeiro resultado' };
 
+    this.httpServer = http.createServer((req, res) => this._handleHttp(req, res));
+    this.wss = new WebSocketServer({ server: this.httpServer });
     this.wss.on('connection', (client) => this._onClientConnect(client));
 
-    this.worker = new DoubleWorker({
-      onResult: (result) => this._handleNewResult(result),
-      onStatusChange: (status) => this._handleStatusChange(status),
-    });
+    this.port = port;
   }
 
   async start() {
     await persistence.initDb();
-    this.worker.start();
-    console.log(`[gateway] WebSocket ouvindo na porta ${this.wss.options.port}`);
+    this.httpServer.listen(this.port, () => {
+      console.log(`[gateway] HTTP + WebSocket ouvindo na porta ${this.port}`);
+    });
+  }
+
+  // ---------- HTTP interno (ingest do bridge Python) ----------
+
+  _handleHttp(req, res) {
+    if (req.method === 'POST' && req.url === '/internal/ingest') {
+      return this._handleIngest(req, res);
+    }
+    if (req.method === 'GET' && req.url === '/health') {
+      res.writeHead(200, { 'Content-Type': 'text/plain' });
+      return res.end('ok');
+    }
+    res.writeHead(404);
+    res.end();
+  }
+
+  _handleIngest(req, res) {
+    const secret = req.headers['x-ingest-secret'];
+    if (!INGEST_SECRET || secret !== INGEST_SECRET) {
+      res.writeHead(401);
+      return res.end('unauthorized');
+    }
+
+    let body = '';
+    req.on('data', (chunk) => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const payload = JSON.parse(body);
+        if (payload.number === undefined || payload.number === null) {
+          res.writeHead(400);
+          return res.end('missing number');
+        }
+        const result = {
+          number: payload.number,
+          color: payload.color,
+          timestamp: payload.timestamp || new Date().toISOString(),
+          raw: payload,
+        };
+        this._handleNewResult(result);
+        this._handleStatusChange({ connected: true });
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true }));
+      } catch (e) {
+        res.writeHead(400);
+        res.end('invalid json');
+      }
+    });
   }
 
   // ---------- Ciclo de vida de cliente ----------
 
   _onClientConnect(client) {
-    // Ao conectar, o cliente recebe o estado atual de uma vez
-    // (snapshot), pra não precisar esperar o próximo resultado
-    // pra montar a tela.
     const analysis = analyzeAll(this.buffer);
     this._send(client, {
       type: 'snapshot',
@@ -81,15 +101,12 @@ class RealtimeGateway {
     });
   }
 
-  // ---------- Eventos do worker ----------
+  // ---------- Novo resultado (agora vindo do bridge) ----------
 
   _handleNewResult(result) {
     this.buffer.push(result);
     if (this.buffer.length > BUFFER_SIZE) this.buffer.shift();
 
-    // Fire-and-forget: a gravação no banco nunca deve atrasar nem
-    // quebrar o broadcast em tempo real. Erros já são tratados e
-    // logados dentro do próprio persistence.js.
     persistence.saveResult(result);
 
     const analysis = analyzeAll(this.buffer);
@@ -107,11 +124,9 @@ class RealtimeGateway {
   _handleStatusChange(status) {
     this.lastStatus = status;
     this._broadcast({ type: 'status', status });
-    // status.connected === false  →  frontend deve mostrar aviso
-    // e liberar o botão de entrada manual, conforme já decidido.
   }
 
-  // ---------- Cálculo de tendências (leve, roda em memória) ----------
+  // ---------- Cálculo de tendências ----------
 
   _calcTrends() {
     const out = {};
@@ -147,23 +162,19 @@ class RealtimeGateway {
 
 module.exports = { RealtimeGateway };
 
-// ---------- Exemplo de uso ----------
 if (require.main === module) {
-  const gateway = new RealtimeGateway({ port: 8081 });
+  const gateway = new RealtimeGateway({});
 
-  // Log extra só pra facilitar teste manual no terminal (Replit),
-  // sem precisar montar o frontend ainda pra ver se o pattern-engine
-  // está disparando corretamente.
   const originalHandle = gateway._handleNewResult.bind(gateway);
   gateway._handleNewResult = (result) => {
     originalHandle(result);
     const analysis = analyzeAll(gateway.buffer);
     const disparadas = analysis.strategies.filter((s) => s.status === 'disparou');
     if (disparadas.length > 0) {
-      console.log(`[pattern-engine] ${disparadas.length} estratégia(s) disparada(s):`, disparadas.map((s) => `${s.name}→${s.entryColor}`).join(', '));
+      console.log(`[pattern-engine] ${disparadas.length} estrategia(s) disparada(s):`, disparadas.map((s) => `${s.name}->${s.entryColor}`).join(', '));
     }
     if (analysis.confluence.count > 0) {
-      console.log(`[pattern-engine] confluência: ${analysis.confluence.count} estratégia(s) apontando pra ${analysis.confluence.color}`);
+      console.log(`[pattern-engine] confluencia: ${analysis.confluence.count} estrategia(s) apontando pra ${analysis.confluence.color}`);
     }
   };
 
