@@ -47,8 +47,7 @@ def run():
                     print(f"[bridge] corpo da resposta: {resp.text[:500]}")
                     time.sleep(5)
                     continue
-                event_name = None
-                )
+
                 event_name = None
                 for raw_line in resp.iter_lines():
                     if raw_line is None:
