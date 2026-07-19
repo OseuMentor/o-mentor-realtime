@@ -165,16 +165,23 @@ module.exports = { RealtimeGateway };
 if (require.main === module) {
   const gateway = new RealtimeGateway({});
 
+  const corLabel = (cor) => {
+    if (cor === 'red') return '🔴 Vermelho';
+    if (cor === 'black') return '⚫ Preto';
+    if (cor === 'white') return '⚪ Branco';
+    return cor;
+  };
+
   const originalHandle = gateway._handleNewResult.bind(gateway);
   gateway._handleNewResult = (result) => {
     originalHandle(result);
     const analysis = analyzeAll(gateway.buffer);
     const disparadas = analysis.strategies.filter((s) => s.status === 'disparou');
     if (disparadas.length > 0) {
-      console.log(`[pattern-engine] ${disparadas.length} estrategia(s) disparada(s):`, disparadas.map((s) => `${s.name}->${s.entryColor}`).join(', '));
+      console.log(`[pattern-engine] ${disparadas.length} estrategia(s) disparada(s):`, disparadas.map((s) => `${s.name}->${corLabel(s.entryColor)}`).join(', '));
     }
     if (analysis.confluence.count > 0) {
-      console.log(`[pattern-engine] confluencia: ${analysis.confluence.count} estrategia(s) apontando pra ${analysis.confluence.color}`);
+      console.log(`[pattern-engine] confluencia: ${analysis.confluence.count} estrategia(s) apontando pra ${corLabel(analysis.confluence.color)}`);
     }
   };
 
