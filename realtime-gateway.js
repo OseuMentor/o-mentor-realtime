@@ -166,9 +166,9 @@ if (require.main === module) {
   const gateway = new RealtimeGateway({});
 
   const corLabel = (cor) => {
-    if (cor === 'red') return '🔴 Vermelho';
-    if (cor === 'black') return '⚫ Preto';
-    if (cor === 'white') return '⚪ Branco';
+    if (cor === 'red') return '🔴';
+    if (cor === 'black') return '⚫';
+    if (cor === 'white') return '⚪';
     return cor;
   };
 
