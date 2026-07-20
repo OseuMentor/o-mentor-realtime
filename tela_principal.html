@@ -354,14 +354,11 @@ function connect() {
   ws.onmessage = (evt) => {
     const msg = JSON.parse(evt.data);
     if (msg.type === 'snapshot') {
-      results = msg.history || [];
-      renderRow('row1');
-      renderRow('row2');
+      results = (msg.history || []).slice(-MAX_HISTORY);
+      renderAllRows();
       renderTrendsFromServer(msg.trends);
       renderBestStrategy(msg.strategies, msg.confluence);
     } else if (msg.type === 'new_result') {
-      results.push(msg.result);
-      if (results.length > 14) results.shift();
       pushTileToRows(msg.result);
       renderTrendsFromServer(msg.trends);
       renderBestStrategy(msg.strategies, msg.confluence);
@@ -432,6 +429,8 @@ function renderBestStrategy(strategies, confluence){
   panel.querySelector('.pct').textContent = '--';
 }
 
+const MAX_HISTORY = 28; // 14 por linha x 2 linhas, formando uma fita contínua
+
 function fmtTime(iso){
   if (!iso) return '--:--';
   const d = new Date(iso);
@@ -446,18 +445,34 @@ function makeTile(item, entering){
   return el;
 }
 
-function renderRow(rowId){
-  const row = document.getElementById(rowId);
-  row.innerHTML = '';
-  results.forEach(item => row.appendChild(makeTile(item, false)));
+// Renderiza as duas linhas a partir do array "results" (do mais antigo pro
+// mais recente): linha 1 recebe a primeira metade, linha 2 a segunda metade,
+// formando uma fita contínua de até 28 resultados sem repetir nenhum.
+function renderAllRows(animateLast){
+  const half = Math.ceil(results.length / 2);
+  const row1Items = results.slice(0, half);
+  const row2Items = results.slice(half);
+
+  const row1 = document.getElementById('row1');
+  const row2 = document.getElementById('row2');
+  row1.innerHTML = '';
+  row2.innerHTML = '';
+  row1Items.forEach(item => row1.appendChild(makeTile(item, false)));
+  row2Items.forEach((item, i) => {
+    const isLast = animateLast && i === row2Items.length - 1;
+    row2.appendChild(makeTile(item, isLast));
+  });
+}
+
+// Mantido por compatibilidade com o snapshot inicial (chama a mesma lógica).
+function renderRow(){
+  renderAllRows(false);
 }
 
 function pushTileToRows(item){
-  ['row1','row2'].forEach(id => {
-    const row = document.getElementById(id);
-    row.appendChild(makeTile(item, true));
-    if (row.children.length > 14) row.removeChild(row.firstChild);
-  });
+  results.push(item);
+  if (results.length > MAX_HISTORY) results.shift();
+  renderAllRows(true);
 }
 
 connect();
