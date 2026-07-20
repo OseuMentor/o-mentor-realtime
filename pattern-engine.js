@@ -41,6 +41,13 @@
  * com um pequeno registro em memória (ou N8N) de "última entrada por
  * estratégia", e cruzado com o resultado desta função antes de emitir
  * o alerta pro usuário.
+ *
+ * CORREÇÃO (19/jul/2026): as estratégias de contagem (Number 3, Number 5,
+ * 2Five) ficavam marcadas como "disparou" para sempre depois que a
+ * contagem passava do ponto certo, mesmo sem nenhum gatilho novo. Agora
+ * "disparou" só vale exatamente no momento em que a contagem se
+ * completa; depois disso, se não sair um gatilho novo, o status volta
+ * pra "aguardando" (o gatilho antigo expira).
  * ------------------------------------------------------------------
  */
 
@@ -81,7 +88,11 @@ function countingStrategy(history, { id, name, category, triggerTest, countLengt
     const restantes = countLength - casasContadas;
     return { id, name, category, status: 'formando', entryColor, detail: `Gatilho detectado. Faltam ${restantes} casa(s).`, casasRestantes: restantes };
   }
-  return { id, name, category, status: 'disparou', entryColor, detail: `Contagem completa. Entrada em ${entryColor === 'red' ? 'Vermelho' : 'Preto'} até sair.`, casasRestantes: 0 };
+  if (casasContadas === countLength) {
+    return { id, name, category, status: 'disparou', entryColor, detail: `Contagem completa. Entrada em ${entryColor === 'red' ? 'Vermelho' : 'Preto'} até sair.`, casasRestantes: 0 };
+  }
+  // Passou do ponto de contagem sem novo gatilho aparecer: expira.
+  return { id, name, category, status: 'aguardando', entryColor: null, detail: 'Gatilho expirado, aguardando novo.', casasRestantes: null };
 }
 
 function numberThree(history) {
@@ -115,7 +126,11 @@ function twoFive(history) {
   if (casasContadas < 5) {
     return { id: '2five', name: '2Five', category: 'Contagem numérica', status: 'formando', entryColor: 'red', detail: `Gatilho 5-5 detectado. Faltam ${5 - casasContadas} casa(s).`, casasRestantes: 5 - casasContadas };
   }
-  return { id: '2five', name: '2Five', category: 'Contagem numérica', status: 'disparou', entryColor: 'red', detail: 'Contagem completa. Entrada em Vermelho.', casasRestantes: 0 };
+  if (casasContadas === 5) {
+    return { id: '2five', name: '2Five', category: 'Contagem numérica', status: 'disparou', entryColor: 'red', detail: 'Contagem completa. Entrada em Vermelho.', casasRestantes: 0 };
+  }
+  // Passou do ponto de contagem sem novo gatilho 5-5 aparecer: expira.
+  return { id: '2five', name: '2Five', category: 'Contagem numérica', status: 'aguardando', entryColor: null, detail: 'Gatilho expirado, aguardando novo.', casasRestantes: null };
 }
 
 // ---------------------------------------------------------------
