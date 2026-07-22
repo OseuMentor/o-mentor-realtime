@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>O Mentor — IA das Apostas</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --black:  #07070d;
+  --card:   #141420;
+  --card-2: #1b1b2b;
+  --purple: #6d28d9;
+  --violet: #a78bfa;
+  --neon:   #c084fc;
+  --white:  #ede8ff;
+  --muted:  #6b6584;
+  --red:    #ef4360;
+  --black-tile: #17171f;
+  --green:  #4ade80;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--black);
+  color: var(--white);
+  font-family: 'Inter', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.glow-orb { position: fixed; border-radius: 50%; pointer-events: none; z-index: 0; }
+.glow-orb.a { width: 560px; height: 560px; background: radial-gradient(circle, rgba(109,40,217,.16) 0%, transparent 65%); top: -220px; right: -160px; }
+.glow-orb.b { width: 420px; height: 420px; background: radial-gradient(circle, rgba(192,132,252,.10) 0%, transparent 65%); bottom: -140px; left: -100px; }
+
+.felt-pattern {
+  position: fixed; inset: 0; z-index: 0; opacity: .035; pointer-events: none;
+  background-image:
+    radial-gradient(circle at 20px 20px, var(--violet) 1.5px, transparent 1.5px),
+    radial-gradient(circle at 60px 60px, var(--violet) 1.5px, transparent 1.5px);
+  background-size: 80px 80px;
+}
+
+.suit-bg { position: fixed; z-index: 0; pointer-events: none; opacity: .05; font-size: 120px; color: var(--violet); font-family: Georgia, serif; }
+.suit-bg.s1 { top: 60px; left: -20px; transform: rotate(-15deg); }
+.suit-bg.s2 { bottom: 40px; right: -10px; transform: rotate(12deg); }
+.suit-bg.s3 { top: 45%; left: 46%; transform: rotate(-8deg); font-size: 90px; }
+
+.page {
+  position: relative; z-index: 1;
+  max-width: 980px; margin: 0 auto;
+  padding: 28px 32px 60px;
+}
+
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 22px;
+  flex-wrap: wrap; gap: 16px;
+}
+
+nav.main-nav {
+  display: flex; align-items: center; gap: 4px;
+  background: var(--card);
+  border: 1px solid rgba(167,139,250,.14);
+  border-radius: 999px;
+  padding: 5px;
+}
+nav.main-nav a {
+  display: flex; align-items: center; gap: 7px;
+  padding: 9px 16px; border-radius: 999px;
+  font-size: 13px; font-weight: 500; color: var(--muted);
+  text-decoration: none; transition: background .2s ease, color .2s ease;
+  white-space: nowrap;
+}
+nav.main-nav a svg { width: 15px; height: 15px; flex-shrink: 0; }
+nav.main-nav a.active { background: rgba(192,132,252,.14); color: var(--neon); }
+nav.main-nav a:hover:not(.active) { color: var(--white); }
+
+.header-right { display: flex; align-items: center; gap: 12px; }
+.bell-btn {
+  width: 38px; height: 38px; border-radius: 50%;
+  background: var(--card); border: 1px solid rgba(167,139,250,.14);
+  display: flex; align-items: center; justify-content: center;
+  position: relative; cursor: pointer;
+}
+.bell-btn svg { width: 17px; height: 17px; }
+.bell-dot { position: absolute; top: 8px; right: 9px; width: 6px; height: 6px; border-radius: 50%; background: var(--red); }
+.avatar {
+  width: 38px; height: 38px; border-radius: 50%;
+  background: linear-gradient(155deg, var(--card-2), var(--card));
+  border: 1px solid rgba(167,139,250,.3);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Bebas Neue', sans-serif; font-size: 14px; color: var(--neon);
+}
+
+.best-strategy {
+  display: flex; align-items: center; justify-content: space-between; gap: 20px;
+  background: linear-gradient(155deg, rgba(192,132,252,.10), var(--card));
+  border: 1px solid rgba(192,132,252,.35);
+  border-radius: 16px; padding: 20px 22px;
+  margin-bottom: 32px;
+  box-shadow: 0 0 30px rgba(109,40,217,.14);
+}
+.best-strategy .bs-left { display: flex; align-items: center; gap: 16px; }
+.bs-icon {
+  width: 50px; height: 50px; border-radius: 50%; flex-shrink: 0;
+  background: rgba(192,132,252,.14); border: 1px solid rgba(192,132,252,.4);
+  display: flex; align-items: center; justify-content: center;
+}
+.bs-icon svg { width: 22px; height: 22px; }
+.bs-eyebrow { font-size: 10.5px; letter-spacing: 2.5px; text-transform: uppercase; color: var(--neon); margin-bottom: 4px; }
+.bs-name { font-family: 'Bebas Neue', sans-serif; font-size: 24px; letter-spacing: .5px; color: var(--white); }
+.bs-meta { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.bs-right { display: flex; align-items: center; gap: 14px; }
+.bs-suggestion { text-align: right; }
+.bs-suggestion .bs-sug-label { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+.bs-color-dot { width: 26px; height: 26px; border-radius: 50%; margin-top: 5px; margin-left: auto; border: 2px solid rgba(255,255,255,.15); }
+.bs-color-dot.red { background: var(--red); }
+.bs-confidence { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.bs-confidence .pct { font-family: 'Bebas Neue', sans-serif; font-size: 28px; color: var(--green); }
+.bs-confidence .bar { width: 70px; height: 4px; border-radius: 4px; background: rgba(255,255,255,.08); overflow: hidden; }
+.bs-confidence .bar-fill { height: 100%; background: var(--green); width: 78%; }
+.brand { display: flex; align-items: center; gap: 14px; }
+.logo {
+  width: 46px; height: 46px; border-radius: 50%;
+  background: radial-gradient(circle at 32% 30%, var(--neon), var(--purple) 70%);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 22px rgba(192,132,252,.45);
+  position: relative;
+}
+.logo svg { width: 24px; height: 24px; }
+.brand-text .name { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 1px; line-height: 1; color: var(--white); }
+.brand-text .tag { font-size: 10px; letter-spacing: 3px; color: var(--muted); text-transform: uppercase; margin-top: 3px; }
+
+.status-pill {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(74,222,128,.08); border: 1px solid rgba(74,222,128,.3);
+  border-radius: 999px; padding: 7px 14px;
+  font-size: 12px; color: var(--green); font-weight: 500;
+}
+.status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse 1.6s ease-in-out infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
+
+.section-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 34px; letter-spacing: 1px; text-align: center;
+  color: var(--white); margin-bottom: 22px;
+  text-shadow: 0 0 24px rgba(192,132,252,.25);
+}
+
+.history-panel {
+  background: var(--card);
+  border: 1px solid rgba(167,139,250,.16);
+  border-radius: 16px;
+  padding: 18px;
+  overflow: visible;
+  margin-bottom: 40px;
+}
+.history-row { display: flex; gap: 10px; overflow-x: auto; overflow-y: visible; padding-bottom: 4px; }
+.history-row + .history-row { margin-top: 12px; }
+
+.tile { flex-shrink: 0; width: 66px; text-align: center; }
+.tile-box {
+  width: 66px; height: 66px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Bebas Neue', sans-serif; font-size: 26px;
+  border: 1px solid rgba(255,255,255,.06);
+  transition: transform .3s ease;
+}
+.tile-box.red { background: var(--red); color: #3a0410; }
+.tile-box.black { background: var(--black-tile); color: var(--white); border-color: rgba(167,139,250,.25); }
+.tile-box.white { background: var(--white); color: var(--purple); }
+.tile-time { font-size: 10.5px; color: var(--muted); margin-top: 6px; letter-spacing: .5px; }
+.tile.entering .tile-box { animation: enter .4s ease-out; }
+@keyframes enter { from { transform: scale(0.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+.actions { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.action-btn {
+  position: relative; overflow: hidden;
+  background: linear-gradient(155deg, var(--card-2), var(--card));
+  border: 1px solid rgba(167,139,250,.22);
+  border-radius: 16px;
+  padding: 30px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .25s ease, transform .2s ease, box-shadow .25s ease;
+}
+.action-btn:hover { border-color: rgba(192,132,252,.55); transform: translateY(-2px); box-shadow: 0 12px 30px rgba(109,40,217,.25); }
+.action-btn .icon-wrap {
+  width: 44px; height: 44px; border-radius: 50%;
+  background: rgba(192,132,252,.1); border: 1px solid rgba(192,132,252,.3);
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 14px;
+}
+.action-btn .icon-wrap svg { width: 20px; height: 20px; }
+.action-btn .label {
+  font-family: 'Bebas Neue', sans-serif; font-size: 24px; letter-spacing: 1px;
+  color: var(--white);
+}
+.action-btn .sub { font-size: 11.5px; color: var(--muted); margin-top: 6px; letter-spacing: .3px; }
+.action-btn.primary { border-color: rgba(192,132,252,.35); }
+.action-btn.primary .icon-wrap { background: rgba(192,132,252,.16); }
+
+.refresh-bar {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  margin-bottom: 22px; font-size: 12px; color: var(--muted);
+}
+.refresh-bar .refresh-icon { width: 14px; height: 14px; }
+.refresh-bar .refresh-icon.spinning { animation: spin 1s linear; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.refresh-bar strong { color: var(--violet); font-weight: 500; }
+
+.rank-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 32px; }
+.rank-row {
+  display: flex; align-items: center; gap: 14px;
+  background: var(--card); border: 1px solid rgba(167,139,250,.14);
+  border-radius: 12px; padding: 13px 16px;
+  transition: border-color .3s ease, background .3s ease;
+}
+.rank-row.top { border-color: rgba(192,132,252,.4); background: linear-gradient(155deg, rgba(192,132,252,.08), var(--card)); }
+.rank-pos {
+  width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+  background: rgba(167,139,250,.1); color: var(--muted);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Bebas Neue', sans-serif; font-size: 13px;
+}
+.rank-row.top .rank-pos { background: rgba(192,132,252,.22); color: var(--neon); }
+.rank-info { flex: 1; min-width: 0; }
+.rank-name { font-size: 14px; font-weight: 500; color: var(--white); }
+.rank-meta { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+.rank-bar-wrap { width: 90px; flex-shrink: 0; }
+.rank-bar { height: 5px; border-radius: 4px; background: rgba(255,255,255,.07); overflow: hidden; }
+.rank-bar-fill { height: 100%; background: linear-gradient(90deg, var(--purple), var(--neon)); }
+.rank-pct { font-family: 'Bebas Neue', sans-serif; font-size: 20px; color: var(--green); width: 52px; text-align: right; flex-shrink: 0; }
+.rank-trend { width: 16px; flex-shrink: 0; display: flex; justify-content: center; }
+.rank-trend svg { width: 14px; height: 14px; }
+
+.rank-row.dormant { opacity: .45; }
+.rank-row.dormant .rank-pct { color: var(--muted); }
+.rank-empty { text-align: center; padding: 30px 0; color: var(--muted); font-size: 13px; }
+
+footer.disclaimer {
+  margin-top: 36px; text-align: center; font-size: 11px; color: var(--muted); line-height: 1.6;
+}
+</style>
+</head>
+<body>
+
+<div class="glow-orb a"></div>
+<div class="glow-orb b"></div>
+<div class="felt-pattern"></div>
+<div class="suit-bg s1">&#9830;</div>
+<div class="suit-bg s2">&#9827;</div>
+<div class="suit-bg s3">&#9824;</div>
+
+<div class="page">
+  <header>
+    <div class="brand">
+      <div class="logo">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="12" r="9" stroke="#ede8ff" stroke-width="1.4"/>
+          <circle cx="12" cy="12" r="2.4" fill="#ede8ff"/>
+          <path d="M12 3V6M12 18V21M3 12H6M18 12H21" stroke="#ede8ff" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <div class="name">O MENTOR</div>
+        <div class="tag">IA das Apostas</div>
+      </div>
+    </div>
+    <nav class="main-nav">
+      <a href="#">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 11l9-7 9 7M5 10v9h14v-9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Início
+      </a>
+      <a href="#">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 7v5l3 3M21 12a9 9 0 11-9-9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Histórico
+      </a>
+      <a href="#">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M14.7 6.3a4 4 0 00-5.4 5.4L4 17v3h3l5.3-5.3a4 4 0 005.4-5.4l-2.1 2.1-1.6-1.6 2.1-2.1z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+        Ferramentas
+      </a>
+      <a href="#" class="active">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 19V10M12 19V4M20 19v-6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        Estatísticas
+      </a>
+    </nav>
+    <div class="header-right">
+      <div class="bell-btn">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9" stroke="#ede8ff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M13.7 21a2 2 0 01-3.4 0" stroke="#ede8ff" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <span class="bell-dot"></span>
+      </div>
+      <div class="status-pill"><span class="status-dot"></span>Ao vivo</div>
+      <div class="avatar">JV</div>
+    </div>
+  </header>
+
+  <div class="section-title">Estatísticas</div>
+
+  <div class="refresh-bar">
+    <svg class="refresh-icon" id="refreshIcon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M21 12a9 9 0 11-3-6.7M21 4v5h-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    Atualizado há <strong id="lastUpdate">agora</strong> · próxima atualização em <strong id="countdown">5:00</strong>
+  </div>
+
+  <div class="rank-list" id="rankList"></div>
+
+  <footer class="disclaimer">
+    Ranking recalculado a cada 5 minutos com base nos resultados do período. Estatísticas passadas não garantem resultados futuros.
+  </footer>
+</div>
+
+<script>
+const STATS_URL = 'https://o-mentor-realtime-production.up.railway.app/stats';
+const REFRESH_SECONDS = 300; // 5 minutos, igual ao ciclo do statsBatchJob no servidor
+
+let strategies = [];
+let previousOrder = {}; // strategyId -> posição anterior, pra saber a seta de tendência
+let secondsLeft = REFRESH_SECONDS;
+
+function trendIcon(up) {
+  return up
+    ? `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 15l6-6 4 4 6-7M20 9v-3h-3" stroke="#4ade80" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+    : `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 9l6 6 4-4 6 7M20 15v3h-3" stroke="#ef4360" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+
+function renderRanking() {
+  const list = document.getElementById('rankList');
+  list.innerHTML = '';
+
+  if (strategies.length === 0) {
+    list.innerHTML = '<div class="rank-empty">Ainda não há sinais suficientes pra calcular o ranking. Volte em breve.</div>';
+    return;
+  }
+
+  strategies.forEach((s, i) => {
+    const row = document.createElement('div');
+    const wasHigher = previousOrder[s.strategyId] !== undefined && previousOrder[s.strategyId] < i;
+    row.className = 'rank-row' + (i < 3 ? ' top' : '') + (s.dormant ? ' dormant' : '');
+    const winRateLabel = s.winRate === null ? '--' : `${s.winRate.toFixed(1)}%`;
+    const metaLabel = s.dormant
+      ? `${s.sampleSize} entrada(s) — desempenho baixo, adormecida`
+      : `${s.sampleSize} entrada(s) analisada(s)`;
+    row.innerHTML = `
+      <div class="rank-pos">${i + 1}</div>
+      <div class="rank-info">
+        <div class="rank-name">${s.name}</div>
+        <div class="rank-meta">${metaLabel}</div>
+      </div>
+      <div class="rank-bar-wrap"><div class="rank-bar"><div class="rank-bar-fill" style="width:${s.winRate || 0}%"></div></div></div>
+      <div class="rank-pct">${winRateLabel}</div>
+      <div class="rank-trend">${trendIcon(!wasHigher)}</div>
+    `;
+    list.appendChild(row);
+  });
+}
+
+async function fetchStats() {
+  try {
+    const resp = await fetch(STATS_URL);
+    if (!resp.ok) throw new Error('resposta nao-ok: ' + resp.status);
+    const data = await resp.json();
+
+    // Ordena por peso (assertividade ponderada) decrescente, e guarda
+    // a ordem anterior pra calcular a setinha de tendência na próxima
+    // atualização.
+    const sorted = [...data].sort((a, b) => (b.weight || 0) - (a.weight || 0));
+    const newOrder = {};
+    sorted.forEach((s, i) => { newOrder[s.strategyId] = i; });
+
+    strategies = sorted;
+    renderRanking();
+    previousOrder = newOrder;
+
+    document.getElementById('lastUpdate').textContent = 'agora';
+  } catch (err) {
+    console.error('[estatisticas] falha ao buscar /stats:', err);
+    document.getElementById('lastUpdate').textContent = 'erro ao atualizar';
+  }
+}
+
+function tick() {
+  secondsLeft--;
+  if (secondsLeft <= 0) {
+    secondsLeft = REFRESH_SECONDS;
+    document.getElementById('refreshIcon').classList.add('spinning');
+    fetchStats().finally(() => {
+      setTimeout(() => document.getElementById('refreshIcon').classList.remove('spinning'), 900);
+    });
+  }
+  const m = Math.floor(secondsLeft / 60);
+  const sec = (secondsLeft % 60).toString().padStart(2, '0');
+  document.getElementById('countdown').textContent = `${m}:${sec}`;
+}
+
+fetchStats();
+setInterval(tick, 1000);
+</script>
+
+</body>
+</html>
