@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>O Mentor — IA das Apostas</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --black:  #07070d;
+  --card:   #141420;
+  --card-2: #1b1b2b;
+  --purple: #6d28d9;
+  --violet: #a78bfa;
+  --neon:   #c084fc;
+  --white:  #ede8ff;
+  --muted:  #6b6584;
+  --red:    #ef4360;
+  --black-tile: #17171f;
+  --green:  #4ade80;
+  --amber:  #fbbf24;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--black);
+  color: var(--white);
+  font-family: 'Inter', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.glow-orb { position: fixed; border-radius: 50%; pointer-events: none; z-index: 0; }
+.glow-orb.a { width: 560px; height: 560px; background: radial-gradient(circle, rgba(109,40,217,.16) 0%, transparent 65%); top: -220px; right: -160px; }
+.glow-orb.b { width: 420px; height: 420px; background: radial-gradient(circle, rgba(192,132,252,.10) 0%, transparent 65%); bottom: -140px; left: -100px; }
+
+.felt-pattern {
+  position: fixed; inset: 0; z-index: 0; opacity: .035; pointer-events: none;
+  background-image:
+    radial-gradient(circle at 20px 20px, var(--violet) 1.5px, transparent 1.5px),
+    radial-gradient(circle at 60px 60px, var(--violet) 1.5px, transparent 1.5px);
+  background-size: 80px 80px;
+}
+
+.suit-bg { position: fixed; z-index: 0; pointer-events: none; opacity: .05; font-size: 120px; color: var(--violet); font-family: Georgia, serif; }
+.suit-bg.s1 { top: 60px; left: -20px; transform: rotate(-15deg); }
+.suit-bg.s2 { bottom: 40px; right: -10px; transform: rotate(12deg); }
+.suit-bg.s3 { top: 45%; left: 46%; transform: rotate(-8deg); font-size: 90px; }
+
+.page {
+  position: relative; z-index: 1;
+  max-width: 1080px; margin: 0 auto;
+  padding: 28px 32px 60px;
+}
+
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 22px;
+  flex-wrap: wrap; gap: 16px;
+}
+
+nav.main-nav {
+  display: flex; align-items: center; gap: 4px;
+  background: var(--card);
+  border: 1px solid rgba(167,139,250,.14);
+  border-radius: 999px;
+  padding: 5px;
+}
+nav.main-nav a {
+  display: flex; align-items: center; gap: 7px;
+  padding: 9px 16px; border-radius: 999px;
+  font-size: 13px; font-weight: 500; color: var(--muted);
+  text-decoration: none; transition: background .2s ease, color .2s ease;
+  white-space: nowrap;
+}
+nav.main-nav a svg { width: 15px; height: 15px; flex-shrink: 0; }
+nav.main-nav a.active { background: rgba(192,132,252,.14); color: var(--neon); }
+nav.main-nav a:hover:not(.active) { color: var(--white); }
+
+.header-right { display: flex; align-items: center; gap: 12px; }
+.bell-btn {
+  width: 38px; height: 38px; border-radius: 50%;
+  background: var(--card); border: 1px solid rgba(167,139,250,.14);
+  display: flex; align-items: center; justify-content: center;
+  position: relative; cursor: pointer;
+}
+.bell-btn svg { width: 17px; height: 17px; }
+.bell-dot { position: absolute; top: 8px; right: 9px; width: 6px; height: 6px; border-radius: 50%; background: var(--red); }
+.avatar {
+  width: 38px; height: 38px; border-radius: 50%;
+  background: linear-gradient(155deg, var(--card-2), var(--card));
+  border: 1px solid rgba(167,139,250,.3);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Bebas Neue', sans-serif; font-size: 14px; color: var(--neon);
+}
+.brand { display: flex; align-items: center; gap: 14px; }
+.logo {
+  width: 46px; height: 46px; border-radius: 50%;
+  background: radial-gradient(circle at 32% 30%, var(--neon), var(--purple) 70%);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 22px rgba(192,132,252,.45);
+  position: relative;
+}
+.logo svg { width: 24px; height: 24px; }
+.brand-text .name { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 1px; line-height: 1; color: var(--white); }
+.brand-text .tag { font-size: 10px; letter-spacing: 3px; color: var(--muted); text-transform: uppercase; margin-top: 3px; }
+
+.status-pill {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(74,222,128,.08); border: 1px solid rgba(74,222,128,.3);
+  border-radius: 999px; padding: 7px 14px;
+  font-size: 12px; color: var(--green); font-weight: 500;
+}
+.status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse 1.6s ease-in-out infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
+
+.section-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 34px; letter-spacing: 1px; text-align: center;
+  color: var(--white); margin-bottom: 8px;
+  text-shadow: 0 0 24px rgba(192,132,252,.25);
+}
+.section-sub {
+  text-align: center; font-size: 12.5px; color: var(--muted);
+  margin-bottom: 28px;
+}
+
+/* ---- Como usar ---- */
+.howto-panel {
+  background: var(--card);
+  border: 1px solid rgba(167,139,250,.16);
+  border-radius: 16px; padding: 20px 22px;
+  margin-bottom: 20px;
+}
+.howto-list { list-style: none; counter-reset: howto; display: flex; flex-direction: column; gap: 10px; }
+.howto-list li {
+  counter-increment: howto;
+  font-size: 13px; color: var(--white); line-height: 1.55;
+  padding-left: 30px; position: relative;
+}
+.howto-list li::before {
+  content: counter(howto);
+  position: absolute; left: 0; top: 0;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: rgba(192,132,252,.14); border: 1px solid rgba(192,132,252,.4);
+  color: var(--neon); font-family: 'Bebas Neue', sans-serif; font-size: 11px;
+  display: flex; align-items: center; justify-content: center;
+}
+.howto-list li strong { color: var(--neon); font-weight: 600; }
+
+/* ---- Checklist ---- */
+.checklist-panel {
+  background: linear-gradient(155deg, rgba(192,132,252,.08), var(--card));
+  border: 1px solid rgba(192,132,252,.3);
+  border-radius: 16px; padding: 20px 22px;
+  margin-bottom: 36px;
+}
+.checklist-head {
+  display: flex; align-items: center; justify-content: space-between;
+  cursor: pointer; user-select: none;
+  gap: 12px;
+}
+.checklist-head-left { display: flex; align-items: center; gap: 12px; }
+.checklist-icon {
+  width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+  background: rgba(192,132,252,.14); border: 1px solid rgba(192,132,252,.4);
+  display: flex; align-items: center; justify-content: center;
+}
+.checklist-icon svg { width: 18px; height: 18px; }
+.checklist-title { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: .5px; }
+.checklist-progress { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+.checklist-chevron { width: 16px; height: 16px; color: var(--muted); transition: transform .25s ease; flex-shrink: 0; }
+.checklist-panel.open .checklist-chevron { transform: rotate(180deg); }
+.checklist-body {
+  max-height: 0; overflow: hidden;
+  transition: max-height .3s ease, margin-top .3s ease;
+}
+.checklist-panel.open .checklist-body { max-height: 900px; margin-top: 18px; }
+.howto-panel.open .checklist-body { max-height: 900px; margin-top: 18px; }
+.howto-panel .checklist-chevron { transition: transform .25s ease; }
+.howto-panel.open .checklist-chevron { transform: rotate(180deg); }
+.checklist-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 4px;
+  border-bottom: 1px solid rgba(167,139,250,.1);
+  cursor: pointer;
+}
+.checklist-item:last-child { border-bottom: none; }
+.chk-box {
+  width: 20px; height: 20px; border-radius: 6px; flex-shrink: 0;
+  border: 1.5px solid rgba(167,139,250,.4);
+  display: flex; align-items: center; justify-content: center;
+  transition: background .2s ease, border-color .2s ease;
+}
+.chk-box svg { width: 13px; height: 13px; opacity: 0; transition: opacity .15s ease; }
+.checklist-item.checked .chk-box { background: var(--neon); border-color: var(--neon); }
+.checklist-item.checked .chk-box svg { opacity: 1; }
+.checklist-item.checked .chk-label { color: var(--muted); text-decoration: line-through; }
+.chk-label { font-size: 13.5px; color: var(--white); }
+.checklist-reset-note { font-size: 10.5px; color: var(--muted); margin-top: 14px; text-align: center; }
+
+.notes-block { margin-top: 20px; padding-top: 16px; border-top: 1px solid rgba(167,139,250,.14); }
+.notes-label { font-family: 'Bebas Neue', sans-serif; font-size: 15px; letter-spacing: .5px; color: var(--white); margin-bottom: 4px; }
+.notes-hint { font-size: 11px; color: var(--muted); line-height: 1.5; margin-bottom: 10px; }
+.notes-textarea {
+  width: 100%; min-height: 90px; resize: vertical;
+  background: var(--card-2); border: 1px solid rgba(167,139,250,.22);
+  border-radius: 10px; padding: 12px; color: var(--white);
+  font-family: 'Inter', sans-serif; font-size: 13px; line-height: 1.5;
+}
+.notes-textarea:focus { outline: none; border-color: rgba(192,132,252,.55); }
+.notes-textarea::placeholder { color: var(--muted); }
+.notes-saved { font-size: 10.5px; color: var(--green); margin-top: 6px; height: 14px; opacity: 0; transition: opacity .3s ease; }
+.notes-saved.show { opacity: 1; }
+
+/* ---- Groups ---- */
+.tool-group { margin-bottom: 34px; }
+.tool-group-head {
+  display: flex; align-items: baseline; gap: 10px;
+  margin-bottom: 14px; padding-left: 2px;
+}
+.tool-group-title {
+  font-family: 'Bebas Neue', sans-serif; font-size: 19px; letter-spacing: 1px; color: var(--neon);
+}
+.tool-group-count { font-size: 11.5px; color: var(--muted); }
+.tool-group-line { flex: 1; height: 1px; background: linear-gradient(90deg, rgba(192,132,252,.3), transparent); }
+
+.strategy-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px;
+}
+
+.strategy-card {
+  background: var(--card); border: 1px solid rgba(167,139,250,.16);
+  border-radius: 16px; padding: 18px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.strategy-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.strategy-name { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: .5px; color: var(--white); }
+.strategy-pct { font-family: 'Bebas Neue', sans-serif; font-size: 20px; color: var(--green); flex-shrink: 0; }
+
+.mini-pattern { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.mini-tile {
+  width: 34px; height: 34px; border-radius: 7px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Bebas Neue', sans-serif; font-size: 11px;
+  border: 1px solid rgba(255,255,255,.06);
+}
+.mini-tile.red { background: var(--red); color: #3a0410; }
+.mini-tile.black { background: var(--black-tile); color: var(--white); border-color: rgba(167,139,250,.25); }
+.mini-tile.white { background: var(--white); color: var(--purple); }
+.mini-tile.dynamic { background: repeating-linear-gradient(45deg, var(--red), var(--red) 5px, var(--black-tile) 5px, var(--black-tile) 10px); color: var(--white); font-size: 9px; }
+.mini-arrow { width: 14px; height: 14px; color: var(--muted); flex-shrink: 0; }
+.mini-tile.entry { border: 2px solid var(--neon); box-shadow: 0 0 10px rgba(192,132,252,.5); }
+
+.strategy-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+.strategy-condition {
+  font-size: 11px; color: var(--amber); background: rgba(251,191,36,.08);
+  border: 1px solid rgba(251,191,36,.25); border-radius: 8px; padding: 7px 10px; line-height: 1.4;
+}
+
+.badge-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.badge {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; font-weight: 500; padding: 5px 10px; border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.08);
+}
+.badge .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.badge.entry-red { color: var(--red); background: rgba(239,67,96,.1); border-color: rgba(239,67,96,.3); }
+.badge.entry-red .dot { background: var(--red); }
+.badge.entry-black { color: var(--white); background: rgba(255,255,255,.05); border-color: rgba(167,139,250,.25); }
+.badge.entry-black .dot { background: var(--black-tile); border: 1px solid var(--muted); }
+.badge.entry-dynamic { color: var(--violet); background: rgba(167,139,250,.08); border-color: rgba(167,139,250,.3); }
+.badge.entry-dynamic .dot { background: linear-gradient(90deg, var(--red) 50%, var(--black-tile) 50%); }
+.badge.protection { color: var(--muted); }
+.badge.protection .dot { background: var(--white); }
+.badge.tolerance { color: var(--muted); background: transparent; border-style: dashed; }
+
+.strategy-pct-wrap { text-align: right; flex-shrink: 0; }
+.strategy-pct { font-family: 'Bebas Neue', sans-serif; font-size: 20px; color: var(--green); }
+.strategy-pct.pending { color: var(--muted); font-size: 15px; }
+.strategy-samplesize { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+.strategy-card.dormant { opacity: .5; }
+.strategy-card.dormant .strategy-pct { color: var(--muted); }
+.badge.dormant-badge { color: var(--red); background: rgba(239,67,96,.08); border-color: rgba(239,67,96,.3); }
+.badge.dormant-badge .dot { background: var(--red); }
+
+footer.disclaimer {
+  margin-top: 36px; text-align: center; font-size: 11px; color: var(--muted); line-height: 1.6;
+}
+</style>
+</head>
+<body>
+
+<div class="glow-orb a"></div>
+<div class="glow-orb b"></div>
+<div class="felt-pattern"></div>
+<div class="suit-bg s1">&#9830;</div>
+<div class="suit-bg s2">&#9827;</div>
+<div class="suit-bg s3">&#9824;</div>
+
+<div class="page">
+  <header>
+    <div class="brand">
+      <div class="logo">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="12" r="9" stroke="#ede8ff" stroke-width="1.4"/>
+          <circle cx="12" cy="12" r="2.4" fill="#ede8ff"/>
+          <path d="M12 3V6M12 18V21M3 12H6M18 12H21" stroke="#ede8ff" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <div class="name">O MENTOR</div>
+        <div class="tag">IA das Apostas</div>
+      </div>
+    </div>
+    <nav class="main-nav">
+      <a href="#">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 11l9-7 9 7M5 10v9h14v-9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Início
+      </a>
+      <a href="#">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 7v5l3 3M21 12a9 9 0 11-9-9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Histórico
+      </a>
+      <a href="#" class="active">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M14.7 6.3a4 4 0 00-5.4 5.4L4 17v3h3l5.3-5.3a4 4 0 005.4-5.4l-2.1 2.1-1.6-1.6 2.1-2.1z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+        Ferramentas
+      </a>
+      <a href="#">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 19V10M12 19V4M20 19v-6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        Estatísticas
+      </a>
+    </nav>
+    <div class="header-right">
+      <div class="bell-btn">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9" stroke="#ede8ff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M13.7 21a2 2 0 01-3.4 0" stroke="#ede8ff" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <span class="bell-dot"></span>
+      </div>
+      <div class="status-pill"><span class="status-dot"></span>Ao vivo</div>
+      <div class="avatar">JV</div>
+    </div>
+  </header>
+
+  <div class="section-title">Ferramentas</div>
+  <div class="section-sub">Estratégias do módulo de Cores — toda entrada sugere também proteção em Branco</div>
+
+  <!-- Como usar -->
+  <div class="howto-panel" id="howtoPanel">
+    <div class="checklist-head" id="howtoHead">
+      <div class="checklist-head-left">
+        <div class="checklist-icon">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" stroke="#c084fc" stroke-width="1.6"/><path d="M12 16v-4M12 8h.01" stroke="#c084fc" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </div>
+        <div>
+          <div class="checklist-title">Como usar as Estratégias</div>
+          <div class="checklist-progress">De onde vem a % de assertividade de cada estratégia</div>
+        </div>
+      </div>
+      <svg class="checklist-chevron" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="checklist-body">
+      <ol class="howto-list">
+        <li>O <strong>O Mentor</strong> calcula sozinho a % de acerto de cada estratégia, com base nos resultados reais que ele mesmo registra enquanto está ligado — não é mais preciso validar manualmente em outro site.</li>
+        <li>Esse cálculo dá <strong>mais peso pras entradas mais recentes</strong>, então a % reflete melhor o momento atual da estratégia, não só a média histórica.</li>
+        <li>Estratégias muito novas, com poucas entradas registradas, aparecem com <strong>"--"</strong> — ainda não têm amostra suficiente pra confiar no número.</li>
+        <li>Estratégias com bastante amostra e desempenho consistentemente baixo ficam marcadas como <strong>Adormecida</strong> — evite usá-las até o desempenho melhorar.</li>
+        <li>Mesmo com o cálculo automático, <strong>acompanhe só 1 estratégia em destaque por vez</strong> — é a que o app está priorizando no momento.</li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- Checklist -->
+  <div class="checklist-panel" id="checklistPanel">
+    <div class="checklist-head" id="checklistHead">
+      <div class="checklist-head-left">
+        <div class="checklist-icon">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" stroke="#c084fc" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div>
+          <div class="checklist-title">Checklist de Rotina Diária</div>
+          <div class="checklist-progress" id="checklistProgress">0 de 4 concluídas</div>
+        </div>
+      </div>
+      <svg class="checklist-chevron" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="checklist-body">
+      <div id="checklistItems"></div>
+      <div class="checklist-reset-note">Reinicia automaticamente a cada novo dia</div>
+
+      <div class="notes-block">
+        <div class="notes-label">Minhas anotações</div>
+        <div class="notes-hint">Registre aqui qual estratégia está mais assertiva agora e pra qual cor, com base no que você validou no TipMiner. Ex: "Next Black está mais assertivo pro Preto agora, testado com 1.500 casas."</div>
+        <textarea id="notesArea" class="notes-textarea" placeholder="Escreva sua anotação aqui..."></textarea>
+        <div class="notes-saved" id="notesSaved">&nbsp;</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Groups injected by JS -->
+  <div id="toolGroups"></div>
+
+  <footer class="disclaimer">
+    Ferramenta de análise estatística. Resultados passados não garantem resultados futuros.<br>
+    Toda entrada é apoiada por proteção em Branco — isso não elimina o risco da aposta.
+  </footer>
+</div>
+
+<script>
+/* ---------------- Checklist ---------------- */
+const checklistItems = [
+  'Definir a banca do dia',
+  'Revisar horário para Number 3 / Number 5 (início e minuto 30)',
+  'Acompanhar apenas 1 estratégia em destaque por vez',
+  'Registrar os resultados no fim da sessão'
+];
+
+function todayKey(){
+  const d = new Date();
+  return `mentor_checklist_${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
+}
+
+function loadChecklistState(){
+  try {
+    const raw = localStorage.getItem(todayKey());
+    return raw ? JSON.parse(raw) : {};
+  } catch(e){ return {}; }
+}
+
+function saveChecklistState(state){
+  try { localStorage.setItem(todayKey(), JSON.stringify(state)); } catch(e){}
+}
+
+function renderChecklist(){
+  const state = loadChecklistState();
+  const wrap = document.getElementById('checklistItems');
+  wrap.innerHTML = '';
+  checklistItems.forEach((label, i) => {
+    const checked = !!state[i];
+    const row = document.createElement('div');
+    row.className = 'checklist-item' + (checked ? ' checked' : '');
+    row.innerHTML = `
+      <div class="chk-box">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 6L9 17l-5-5" stroke="#07070d" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="chk-label">${label}</div>
+    `;
+    row.addEventListener('click', () => {
+      const s = loadChecklistState();
+      s[i] = !s[i];
+      saveChecklistState(s);
+      renderChecklist();
+    });
+    wrap.appendChild(row);
+  });
+  const doneCount = Object.values(state).filter(Boolean).length;
+  document.getElementById('checklistProgress').textContent = `${doneCount} de ${checklistItems.length} concluídas`;
+}
+renderChecklist();
+
+document.getElementById('checklistHead').addEventListener('click', () => {
+  document.getElementById('checklistPanel').classList.toggle('open');
+});
+
+document.getElementById('howtoHead').addEventListener('click', () => {
+  document.getElementById('howtoPanel').classList.toggle('open');
+});
+
+/* ---------------- Anotações (persistentes, não resetam por dia) ---------------- */
+const NOTES_KEY = 'mentor_notes';
+const notesArea = document.getElementById('notesArea');
+const notesSaved = document.getElementById('notesSaved');
+
+try {
+  notesArea.value = localStorage.getItem(NOTES_KEY) || '';
+} catch(e){}
+
+let notesTimeout;
+notesArea.addEventListener('input', () => {
+  clearTimeout(notesTimeout);
+  notesTimeout = setTimeout(() => {
+    try {
+      localStorage.setItem(NOTES_KEY, notesArea.value);
+      notesSaved.textContent = 'Salvo';
+      notesSaved.classList.add('show');
+      setTimeout(() => notesSaved.classList.remove('show'), 1200);
+    } catch(e){}
+  }, 500);
+});
+
+/* ---------------- Strategy data ---------------- */
+// pattern tile types: red, black, white, dynamic(alterna cor)
+// entry: { c: 'red'|'black'|'dynamic', label: optional }
+const groups = [
+  {
+    title: 'Contagem numérica',
+    items: [
+      {
+        id: 'number3',
+        name: 'Number 3',
+        pattern: [{c:'red', l:'3'}, {c:'ghost'}, {c:'ghost'}, {c:'ghost'}],
+        entry: {c:'black'},
+        desc: 'Cai o número 3 (Vermelho) → conta 3 casas sem cair outro 3 (senão a contagem reseta) → entrada em Preto quando o Preto aparecer após a contagem.',
+        tolerance: 'até 2 entradas/hora'
+      },
+      {
+        id: 'number5',
+        name: 'Number 5',
+        pattern: [{c:'red', l:'5'}, {c:'ghost'}, {c:'ghost'}, {c:'ghost'}, {c:'ghost'}],
+        entry: {c:'red'},
+        desc: 'Cai o número 5 (uma vez) → conta 5 casas → entrada em Vermelho na casa seguinte.'
+      },
+      {
+        id: '2five',
+        name: '2Five',
+        pattern: [{c:'red', l:'5'}, {c:'red', l:'5'}, {c:'ghost'}, {c:'ghost'}, {c:'ghost'}],
+        entry: {c:'red'},
+        desc: 'Caem dois 5 seguidos → conta 5 casas → entrada em Vermelho na casa seguinte.'
+      }
+    ]
+  },
+  {
+    title: 'Alternância (Xadrez)',
+    items: [
+      {
+        id: 'xadrezFormal',
+        name: 'Xadrez — Padrão Formal',
+        pattern: [{c:'red'}, {c:'black'}, {c:'red'}, {c:'black'}],
+        entry: {c:'red'},
+        desc: '4 casas alternadas perfeitas (Vermelho-Preto-Vermelho-Preto, ou o inverso) → entrada na 5ª casa continuando a mesma alternância.'
+      },
+      {
+        id: 'xadrezInformal',
+        name: 'Xadrez Informal',
+        pattern: [{c:'white'}, {c:'red'}, {c:'black'}, {c:'red'}, {c:'black'}],
+        entry: {c:'dynamic'},
+        desc: 'Alternância parecida com o Xadrez, mas tolera um Branco em até 2 casas antes de o padrão se formar → entrada na cor que quebra o padrão.'
+      },
+      {
+        id: 'nextXadrez',
+        name: 'Next Xadrez',
+        pattern: [{c:'dynamic', l:'A'}, {c:'dynamic', l:'B'}, {c:'white'}, {c:'dynamic', l:'B'}],
+        entry: {c:'dynamic', l:'A'},
+        desc: 'Alternância A-B é interrompida por um Branco na 3ª casa, repete a cor B → entrada na cor A, a que abriu o padrão.'
+      }
+    ]
+  },
+  {
+    title: 'Padrões com Branco',
+    items: [
+      {
+        id: 'blackRedWhite',
+        name: 'Black/Red White',
+        pattern: [{c:'dynamic'}, {c:'white'}, {c:'dynamic'}],
+        entry: {c:'dynamic'},
+        desc: 'Uma cor, Branco, e a mesma cor de novo → entrada repetindo essa mesma cor.',
+        tolerance: 'até G2'
+      },
+      {
+        id: 'nextBlack',
+        name: 'Next Black',
+        pattern: [{c:'black'}, {c:'black'}, {c:'white'}, {c:'black'}],
+        entry: {c:'black'},
+        desc: 'Preto-Preto-Branco-Preto → entrada em Preto na casa seguinte.'
+      },
+      {
+        id: 'nextRed',
+        name: 'Next Red',
+        pattern: [{c:'red'}, {c:'red'}, {c:'white'}, {c:'red'}],
+        entry: {c:'red'},
+        desc: 'Vermelho-Vermelho-Branco-Vermelho → entrada em Vermelho na casa seguinte.'
+      },
+      {
+        id: 'nextDoubleWhite',
+        name: 'Next Double White',
+        pattern: [{c:'white'}, {c:'dynamic', l:'A'}, {c:'dynamic', l:'A'}, {c:'dynamic', l:'B'}, {c:'dynamic', l:'B'}],
+        entry: {c:'dynamic', l:'A'},
+        desc: 'Branco seguido de 2 casas de uma cor e 2 casas da cor oposta → entrada na cor do primeiro par, logo após o Branco.'
+      }
+    ]
+  },
+  {
+    title: 'Repetição / Espelhamento',
+    items: [
+      {
+        id: 'blackDouble',
+        name: 'Black Double',
+        pattern: [{c:'black', l:'N'}, {c:'black', l:'N'}],
+        entry: {c:'red'},
+        desc: 'Duas pedras pretas seguidas com o mesmo número → entrada em Vermelho.'
+      },
+      {
+        id: 'repeticaoEspelhamento',
+        name: 'Repetição (Espelhamento)',
+        pattern: [{c:'red'}, {c:'black', l:'9'}, {c:'black', l:'10-14'}, {c:'black', l:'9'}],
+        entry: {c:'red'},
+        desc: 'Vermelho, Preto 9, Preto entre 10 e 14, Preto 9 de novo → entrada em Vermelho fechando o espelho.'
+      },
+      {
+        id: 'padraoDePares',
+        name: 'Padrão de Pares',
+        pattern: [{c:'black', l:'par'}, {c:'red', l:'par'}, {c:'red', l:'par'}],
+        entry: {c:'red'},
+        desc: 'Cai uma pedra preta com número par, depois uma vermelha com número par, e outra vermelha com número par → entrada em Vermelho.'
+      }
+    ]
+  },
+  {
+    title: 'Fechamento condicional',
+    items: [
+      {
+        id: 'fechamentoPadrao',
+        name: 'Fechamento de Padrão',
+        pattern: [{c:'red'}, {c:'black', l:'<10'}, {c:'black', l:'>10'}, {c:'black', l:'>10'}],
+        entry: {c:'red'},
+        desc: 'Vermelho-Preto-Preto-Preto-Vermelho, sendo 1 preto abaixo de 10 e 2 acima de 10 → entrada em Vermelho fechando o padrão.',
+        condition: 'Só usar após um Loss e com a Tendência geral favorável ao Vermelho.'
+      }
+    ]
+  }
+];
+
+function tileHTML(t, isEntry){
+  if (t.c === 'ghost') {
+    return `<div class="mini-tile" style="background:transparent;border-style:dashed;border-color:rgba(167,139,250,.25);color:var(--muted)">?</div>`;
+  }
+  const cls = t.c === 'dynamic' ? 'dynamic' : t.c;
+  return `<div class="mini-tile ${cls}${isEntry ? ' entry' : ''}">${t.l || ''}</div>`;
+}
+
+function arrowHTML(){
+  return `<svg class="mini-arrow" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 12h13M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+
+function badgeEntry(entry){
+  const cls = entry.c === 'red' ? 'entry-red' : entry.c === 'black' ? 'entry-black' : 'entry-dynamic';
+  const label = entry.c === 'red' ? 'Entrada Vermelho' : entry.c === 'black' ? 'Entrada Preto' : `Entrada ${entry.l || 'variável'}`;
+  return `<span class="badge ${cls}"><span class="dot"></span>${label}</span>`;
+}
+
+function renderGroups(){
+  const wrap = document.getElementById('toolGroups');
+  wrap.innerHTML = '';
+  groups.forEach(group => {
+    const groupEl = document.createElement('div');
+    groupEl.className = 'tool-group';
+    const cardsHTML = group.items.map(s => {
+      const patternHTML = s.pattern.map((t, i) => {
+        const isEntry = false;
+        return tileHTML(t, isEntry) + (i < s.pattern.length - 1 ? '' : '');
+      }).join('');
+      return `
+        <div class="strategy-card" data-strategy-id="${s.id}">
+          <div class="strategy-card-head">
+            <div class="strategy-name">${s.name}</div>
+            <div class="strategy-pct-wrap">
+              <div class="strategy-pct pending">--</div>
+              <div class="strategy-samplesize"></div>
+            </div>
+          </div>
+          <div class="mini-pattern">
+            ${patternHTML}
+            ${arrowHTML()}
+            ${tileHTML(s.entry, true)}
+          </div>
+          <div class="strategy-desc">${s.desc}</div>
+          ${s.condition ? `<div class="strategy-condition">⚠ ${s.condition}</div>` : ''}
+          <div class="badge-row">
+            ${badgeEntry(s.entry)}
+            <span class="badge protection"><span class="dot"></span>Proteção Branco</span>
+            ${s.tolerance ? `<span class="badge tolerance">${s.tolerance}</span>` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+    groupEl.innerHTML = `
+      <div class="tool-group-head">
+        <div class="tool-group-title">${group.title}</div>
+        <div class="tool-group-count">${group.items.length} estratégia${group.items.length > 1 ? 's' : ''}</div>
+        <div class="tool-group-line"></div>
+      </div>
+      <div class="strategy-grid">${cardsHTML}</div>
+    `;
+    wrap.appendChild(groupEl);
+  });
+}
+renderGroups();
+
+/* ---------------- Estatísticas reais (conectado ao backend) ---------------- */
+const STATS_URL = 'https://o-mentor-realtime-production.up.railway.app/stats';
+
+async function fetchAndApplyStats(){
+  try {
+    const resp = await fetch(STATS_URL);
+    if (!resp.ok) throw new Error('resposta nao-ok: ' + resp.status);
+    const data = await resp.json();
+    data.forEach(s => {
+      const card = document.querySelector(`.strategy-card[data-strategy-id="${s.strategyId}"]`);
+      if (!card) return;
+      const pctEl = card.querySelector('.strategy-pct');
+      const sampleEl = card.querySelector('.strategy-samplesize');
+      if (s.winRate === null || s.sampleSize === 0) {
+        pctEl.textContent = '--';
+        pctEl.classList.add('pending');
+        sampleEl.textContent = 'sem amostra ainda';
+      } else {
+        pctEl.textContent = `${s.winRate.toFixed(1)}%`;
+        pctEl.classList.remove('pending');
+        sampleEl.textContent = `${s.sampleSize} amostra(s)`;
+      }
+      card.classList.toggle('dormant', !!s.dormant);
+      if (s.dormant) {
+        const badgeRow = card.querySelector('.badge-row');
+        if (badgeRow && !badgeRow.querySelector('.dormant-badge')) {
+          badgeRow.insertAdjacentHTML('beforeend', '<span class="badge dormant-badge"><span class="dot"></span>Adormecida</span>');
+        }
+      }
+    });
+  } catch (err) {
+    console.error('[ferramentas] falha ao buscar /stats:', err);
+  }
+}
+
+fetchAndApplyStats();
+setInterval(fetchAndApplyStats, 5 * 60 * 1000); // mesmo ciclo do statsBatchJob no servidor
+</script>
+
+</body>
+</html>
