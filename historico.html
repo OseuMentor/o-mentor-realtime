@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>O Mentor — IA das Apostas</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --black:  #07070d;
+  --card:   #141420;
+  --card-2: #1b1b2b;
+  --purple: #6d28d9;
+  --violet: #a78bfa;
+  --neon:   #c084fc;
+  --white:  #ede8ff;
+  --muted:  #6b6584;
+  --red:    #ef4360;
+  --black-tile: #17171f;
+  --green:  #4ade80;
+  --amber:  #fbbf24;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--black);
+  color: var(--white);
+  font-family: 'Inter', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.glow-orb { position: fixed; border-radius: 50%; pointer-events: none; z-index: 0; }
+.glow-orb.a { width: 560px; height: 560px; background: radial-gradient(circle, rgba(109,40,217,.16) 0%, transparent 65%); top: -220px; right: -160px; }
+.glow-orb.b { width: 420px; height: 420px; background: radial-gradient(circle, rgba(192,132,252,.10) 0%, transparent 65%); bottom: -140px; left: -100px; }
+
+.felt-pattern {
+  position: fixed; inset: 0; z-index: 0; opacity: .035; pointer-events: none;
+  background-image:
+    radial-gradient(circle at 20px 20px, var(--violet) 1.5px, transparent 1.5px),
+    radial-gradient(circle at 60px 60px, var(--violet) 1.5px, transparent 1.5px);
+  background-size: 80px 80px;
+}
+
+.suit-bg { position: fixed; z-index: 0; pointer-events: none; opacity: .05; font-size: 120px; color: var(--violet); font-family: Georgia, serif; }
+.suit-bg.s1 { top: 60px; left: -20px; transform: rotate(-15deg); }
+.suit-bg.s2 { bottom: 40px; right: -10px; transform: rotate(12deg); }
+.suit-bg.s3 { top: 45%; left: 46%; transform: rotate(-8deg); font-size: 90px; }
+
+.page {
+  position: relative; z-index: 1;
+  max-width: 980px; margin: 0 auto;
+  padding: 28px 32px 60px;
+}
+
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 22px;
+  flex-wrap: wrap; gap: 16px;
+}
+
+nav.main-nav {
+  display: flex; align-items: center; gap: 4px;
+  background: var(--card);
+  border: 1px solid rgba(167,139,250,.14);
+  border-radius: 999px;
+  padding: 5px;
+}
+nav.main-nav a {
+  display: flex; align-items: center; gap: 7px;
+  padding: 9px 16px; border-radius: 999px;
+  font-size: 13px; font-weight: 500; color: var(--muted);
+  text-decoration: none; transition: background .2s ease, color .2s ease;
+  white-space: nowrap;
+}
+nav.main-nav a svg { width: 15px; height: 15px; flex-shrink: 0; }
+nav.main-nav a.active { background: rgba(192,132,252,.14); color: var(--neon); }
+nav.main-nav a:hover:not(.active) { color: var(--white); }
+
+.header-right { display: flex; align-items: center; gap: 12px; }
+.bell-btn {
+  width: 38px; height: 38px; border-radius: 50%;
+  background: var(--card); border: 1px solid rgba(167,139,250,.14);
+  display: flex; align-items: center; justify-content: center;
+  position: relative; cursor: pointer;
+}
+.bell-btn svg { width: 17px; height: 17px; }
+.bell-dot { position: absolute; top: 8px; right: 9px; width: 6px; height: 6px; border-radius: 50%; background: var(--red); }
+.avatar {
+  width: 38px; height: 38px; border-radius: 50%;
+  background: linear-gradient(155deg, var(--card-2), var(--card));
+  border: 1px solid rgba(167,139,250,.3);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Bebas Neue', sans-serif; font-size: 14px; color: var(--neon);
+}
+
+.brand { display: flex; align-items: center; gap: 14px; }
+.logo {
+  width: 46px; height: 46px; border-radius: 50%;
+  background: radial-gradient(circle at 32% 30%, var(--neon), var(--purple) 70%);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 22px rgba(192,132,252,.45);
+  position: relative;
+}
+.logo svg { width: 24px; height: 24px; }
+.brand-text .name { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 1px; line-height: 1; color: var(--white); }
+.brand-text .tag { font-size: 10px; letter-spacing: 3px; color: var(--muted); text-transform: uppercase; margin-top: 3px; }
+
+.status-pill {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(74,222,128,.08); border: 1px solid rgba(74,222,128,.3);
+  border-radius: 999px; padding: 7px 14px;
+  font-size: 12px; color: var(--green); font-weight: 500;
+}
+.status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse 1.6s ease-in-out infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
+
+.section-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 34px; letter-spacing: 1px; text-align: center;
+  color: var(--white); margin-bottom: 8px;
+  text-shadow: 0 0 24px rgba(192,132,252,.25);
+}
+.section-sub {
+  text-align: center; font-size: 12.5px; color: var(--muted);
+  margin-bottom: 26px; letter-spacing: .2px;
+}
+
+/* Summary strip */
+.summary-strip {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+  margin-bottom: 30px;
+}
+.summary-card {
+  background: var(--card); border: 1px solid rgba(167,139,250,.14);
+  border-radius: 14px; padding: 16px 14px; text-align: center;
+}
+.summary-card .s-dot { width: 10px; height: 10px; border-radius: 50%; margin: 0 auto 10px; }
+.summary-card .s-dot.win { background: var(--green); box-shadow: 0 0 8px rgba(74,222,128,.5); }
+.summary-card .s-dot.g1 { background: var(--amber); box-shadow: 0 0 8px rgba(251,191,36,.5); }
+.summary-card .s-dot.loss { background: var(--red); box-shadow: 0 0 8px rgba(239,67,96,.5); }
+.summary-card .s-dot.branco { background: var(--white); border: 2px solid var(--purple); }
+.summary-card .s-val { font-family: 'Bebas Neue', sans-serif; font-size: 26px; color: var(--white); }
+.summary-card .s-label { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+
+/* Day list */
+.day-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
+
+.day-row {
+  display: flex; align-items: center; gap: 16px;
+  background: var(--card); border: 1px solid rgba(167,139,250,.14);
+  border-radius: 14px; padding: 14px 18px;
+  transition: border-color .25s ease;
+}
+.day-row:hover { border-color: rgba(192,132,252,.35); }
+.day-row.today { border-color: rgba(192,132,252,.4); background: linear-gradient(155deg, rgba(192,132,252,.08), var(--card)); }
+
+.day-date { width: 92px; flex-shrink: 0; }
+.day-date .dd-day { font-family: 'Bebas Neue', sans-serif; font-size: 22px; color: var(--white); letter-spacing: .5px; }
+.day-date .dd-meta { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-top: 1px; }
+
+.day-stats {
+  flex: 1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+}
+.stat-chip {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,.02);
+  border: 1px solid rgba(255,255,255,.05);
+  border-radius: 10px; padding: 8px 10px;
+}
+.stat-chip .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.stat-chip .dot.win { background: var(--green); }
+.stat-chip .dot.g1 { background: var(--amber); }
+.stat-chip .dot.loss { background: var(--red); }
+.stat-chip .dot.branco { background: var(--white); border: 1.5px solid var(--purple); }
+.stat-chip .n { font-family: 'Bebas Neue', sans-serif; font-size: 17px; color: var(--white); line-height: 1; }
+.stat-chip .lbl { font-size: 9.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; line-height: 1; margin-top: 2px; }
+.stat-chip .txt { display: flex; flex-direction: column; }
+
+.day-total { width: 68px; flex-shrink: 0; text-align: right; }
+.day-total .dt-n { font-family: 'Bebas Neue', sans-serif; font-size: 20px; color: var(--neon); }
+.day-total .dt-lbl { font-size: 9.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+
+.window-note {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  margin-bottom: 22px; font-size: 12px; color: var(--muted); text-align: center;
+}
+.window-note svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+footer.disclaimer {
+  margin-top: 36px; text-align: center; font-size: 11px; color: var(--muted); line-height: 1.6;
+}
+
+@media (max-width: 640px) {
+  .day-row { flex-wrap: wrap; }
+  .day-stats { grid-template-columns: repeat(2, 1fr); order: 3; width: 100%; }
+  .day-total { order: 2; margin-left: auto; }
+  .summary-strip { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ---------- Ajustes responsivos (mobile) ---------- */
+@media (max-width: 640px) {
+  .page { padding-left: 16px; padding-right: 16px; }
+  body { overflow-x: hidden; }
+
+  nav.main-nav {
+    overflow-x: auto;
+    max-width: 100%;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  nav.main-nav::-webkit-scrollbar { display: none; }
+  nav.main-nav a {
+    flex-shrink: 0;
+    font-size: 10.5px;
+    padding: 7px 8px;
+    gap: 3px;
+  }
+  nav.main-nav a svg { width: 12px; height: 12px; }
+
+  .trend-strip { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="glow-orb a"></div>
+<div class="glow-orb b"></div>
+<div class="felt-pattern"></div>
+<div class="suit-bg s1">&#9830;</div>
+<div class="suit-bg s2">&#9827;</div>
+<div class="suit-bg s3">&#9824;</div>
+
+<div class="page">
+  <header>
+    <div class="brand">
+      <div class="logo">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="12" r="9" stroke="#ede8ff" stroke-width="1.4"/>
+          <circle cx="12" cy="12" r="2.4" fill="#ede8ff"/>
+          <path d="M12 3V6M12 18V21M3 12H6M18 12H21" stroke="#ede8ff" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <div class="name">O MENTOR</div>
+        <div class="tag">IA das Apostas</div>
+      </div>
+    </div>
+    <nav class="main-nav">
+      <a href="tela_principal.html">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 11l9-7 9 7M5 10v9h14v-9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Início
+      </a>
+      <a href="historico.html" class="active">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 7v5l3 3M21 12a9 9 0 11-9-9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Histórico
+      </a>
+      <a href="ferramentas.html">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M14.7 6.3a4 4 0 00-5.4 5.4L4 17v3h3l5.3-5.3a4 4 0 005.4-5.4l-2.1 2.1-1.6-1.6 2.1-2.1z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+        Ferramentas
+      </a>
+      <a href="estatisticas.html">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 19V10M12 19V4M20 19v-6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        Estatísticas
+      </a>
+    </nav>
+    <div class="header-right">
+      <div class="bell-btn">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9" stroke="#ede8ff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M13.7 21a2 2 0 01-3.4 0" stroke="#ede8ff" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <span class="bell-dot"></span>
+      </div>
+      <div class="status-pill"><span class="status-dot"></span>Ao vivo</div>
+      <div class="avatar">JV</div>
+    </div>
+  </header>
+
+  <div class="section-title">Histórico</div>
+  <div class="section-sub">Sinais enviados pelo app, dia a dia — janela dos últimos 60 dias</div>
+
+  <div class="summary-strip" id="summaryStrip"></div>
+
+  <div class="day-list" id="dayList"></div>
+
+  <div class="window-note">
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/><path d="M12 8v4l2.5 2.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    Mostrando os últimos 60 dias · dias mais antigos saem automaticamente da lista
+  </div>
+
+  <footer class="disclaimer">
+    Contagem baseada nos sinais gerados pelo app (Branco, Win, G1, Loss), horário de Brasília. Não representa o resultado financeiro do usuário — resultados passados não garantem resultados futuros.
+  </footer>
+</div>
+
+<script>
+const HISTORY_URL = 'https://o-mentor-realtime-production.up.railway.app/history';
+const diasSemana = ['dom','seg','ter','qua','qui','sex','sáb'];
+
+let dias = []; // preenchido por fetchHistory(), no formato { date: Date, branco, win, g1, loss, total }
+
+function parseDataLocal(dateStr) {
+  // dateStr vem como 'YYYY-MM-DD' (já em fuso de Brasília, calculado
+  // no backend) — criamos a Date "no dia certo" sem risco de fuso
+  // horário do navegador empurrar pra véspera/próximo dia.
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+async function fetchHistory() {
+  try {
+    const resp = await fetch(HISTORY_URL);
+    if (!resp.ok) throw new Error('resposta nao-ok: ' + resp.status);
+    const data = await resp.json();
+    dias = data.map((r) => ({
+      date: parseDataLocal(r.date),
+      branco: r.branco,
+      win: r.win,
+      g1: r.g1,
+      loss: r.loss,
+      total: r.total,
+    }));
+    renderSummary();
+    renderDayList();
+  } catch (err) {
+    console.error('[historico] falha ao buscar /history:', err);
+    const list = document.getElementById('dayList');
+    list.innerHTML = '<div class="window-note">Não foi possível carregar o histórico agora. Tente novamente em instantes.</div>';
+  }
+}
+
+function fmtData(d, isToday){
+  const dd = d.getDate().toString().padStart(2,'0');
+  const mm = (d.getMonth()+1).toString().padStart(2,'0');
+  return {
+    dayLabel: isToday ? 'Hoje' : `${dd}/${mm}`,
+    weekLabel: diasSemana[d.getDay()]
+  };
+}
+
+function renderSummary(){
+  const totals = dias.reduce((acc, d) => {
+    acc.branco += d.branco; acc.win += d.win; acc.g1 += d.g1; acc.loss += d.loss;
+    return acc;
+  }, {branco:0, win:0, g1:0, loss:0});
+
+  const strip = document.getElementById('summaryStrip');
+  strip.innerHTML = `
+    <div class="summary-card"><div class="s-dot win"></div><div class="s-val">${totals.win}</div><div class="s-label">Win (60d)</div></div>
+    <div class="summary-card"><div class="s-dot g1"></div><div class="s-val">${totals.g1}</div><div class="s-label">G1 (60d)</div></div>
+    <div class="summary-card"><div class="s-dot loss"></div><div class="s-val">${totals.loss}</div><div class="s-label">Loss (60d)</div></div>
+    <div class="summary-card"><div class="s-dot branco"></div><div class="s-val">${totals.branco}</div><div class="s-label">Branco (60d)</div></div>
+  `;
+}
+
+function renderDayList(){
+  const list = document.getElementById('dayList');
+  list.innerHTML = '';
+
+  if (dias.length === 0) {
+    list.innerHTML = '<div class="window-note">Ainda não há sinais resolvidos suficientes pra montar o histórico. Volte em breve.</div>';
+    return;
+  }
+
+  dias.forEach((d, i) => {
+    const hoje = new Date();
+    const isToday = d.date.getFullYear() === hoje.getFullYear()
+      && d.date.getMonth() === hoje.getMonth()
+      && d.date.getDate() === hoje.getDate();
+    const { dayLabel, weekLabel } = fmtData(d.date, isToday);
+    const row = document.createElement('div');
+    row.className = 'day-row' + (isToday ? ' today' : '');
+    row.innerHTML = `
+      <div class="day-date">
+        <div class="dd-day">${dayLabel}</div>
+        <div class="dd-meta">${weekLabel}</div>
+      </div>
+      <div class="day-stats">
+        <div class="stat-chip">
+          <span class="dot win"></span>
+          <span class="txt"><span class="n">${d.win}</span><span class="lbl">Win</span></span>
+        </div>
+        <div class="stat-chip">
+          <span class="dot g1"></span>
+          <span class="txt"><span class="n">${d.g1}</span><span class="lbl">G1</span></span>
+        </div>
+        <div class="stat-chip">
+          <span class="dot loss"></span>
+          <span class="txt"><span class="n">${d.loss}</span><span class="lbl">Loss</span></span>
+        </div>
+        <div class="stat-chip">
+          <span class="dot branco"></span>
+          <span class="txt"><span class="n">${d.branco}</span><span class="lbl">Branco</span></span>
+        </div>
+      </div>
+      <div class="day-total">
+        <div class="dt-n">${d.total}</div>
+        <div class="dt-lbl">sinais</div>
+      </div>
+    `;
+    list.appendChild(row);
+  });
+}
+
+fetchHistory();
+setInterval(fetchHistory, 5 * 60 * 1000); // mesmo ciclo das outras telas conectadas ao backend
+</script>
+
+</body>
+</html>
