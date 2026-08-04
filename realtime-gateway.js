@@ -20,6 +20,7 @@ const persistence = require('./persistence');
 const strategyTracker = require('./strategyTracker');
 const statsBatchJob = require('./statsBatchJob');
 const { STRATEGY_META } = require('./strategyMeta');
+const lastlinkWebhook = require('./lastlinkWebhook');
 
 const WINDOWS = { tendencia: 100, mini: 50, micro: 16 };
 const BUFFER_SIZE = 100;
@@ -49,21 +50,72 @@ class RealtimeGateway {
   // ---------- HTTP interno (ingest do bridge Python) ----------
 
   _handleHttp(req, res) {
-    if (req.method === 'POST' && req.url === '/internal/ingest') {
+    const urlPath = req.url.split('?')[0];
+
+    if (req.method === 'POST' && urlPath === '/internal/ingest') {
       return this._handleIngest(req, res);
     }
-    if (req.method === 'GET' && req.url === '/stats') {
+    if (req.method === 'POST' && urlPath === '/webhooks/lastlink') {
+      return this._handleLastlinkWebhook(req, res);
+    }
+    if (req.method === 'GET' && urlPath === '/check-access') {
+      return this._handleCheckAccess(req, res);
+    }
+    if (req.method === 'GET' && urlPath === '/stats') {
       return this._handleStats(req, res);
     }
-    if (req.method === 'GET' && req.url === '/history') {
+    if (req.method === 'GET' && urlPath === '/history') {
       return this._handleHistory(req, res);
     }
-    if (req.method === 'GET' && req.url === '/health') {
+    if (req.method === 'GET' && urlPath === '/health') {
       res.writeHead(200, { 'Content-Type': 'text/plain' });
       return res.end('ok');
     }
     res.writeHead(404);
     res.end();
+  }
+
+  // Recebe o webhook da LastLink (assinatura paga liberada/cortada).
+  // A validação do segredo e a interpretação do payload ficam isoladas
+  // em lastlinkWebhook.js — aqui só lemos o corpo bruto e repassamos.
+  _handleLastlinkWebhook(req, res) {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk; });
+    req.on('end', () => {
+      lastlinkWebhook.handleWebhookRequest(req, res, body).catch((err) => {
+        console.error(`[gateway] falha ao processar webhook da LastLink: ${err.message}`);
+        if (!res.writableEnded) {
+          res.writeHead(500);
+          res.end('internal error');
+        }
+      });
+    });
+  }
+
+  // Endpoint público e só-leitura que o frontend consulta ao carregar
+  // cada página, pra saber se libera o app ou mostra a tela de acesso.
+  // Não expõe nada além de true/false — não é informação sensível o
+  // suficiente pra justificar autenticação nesse endpoint específico.
+  async _handleCheckAccess(req, res) {
+    const fullUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    const email = fullUrl.searchParams.get('email');
+
+    res.writeHead(200, {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+    });
+
+    if (!email) {
+      return res.end(JSON.stringify({ active: false }));
+    }
+
+    try {
+      const active = await persistence.checkAccess(email);
+      res.end(JSON.stringify({ active }));
+    } catch (err) {
+      console.error(`[gateway] falha ao checar acesso: ${err.message}`);
+      res.end(JSON.stringify({ active: false }));
+    }
   }
 
   // Dado público e só-leitura (nenhuma informação sensível), por isso
