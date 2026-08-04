@@ -118,7 +118,27 @@ async function initDb() {
     );
   `);
 
-  console.log('[persistence] tabelas double_results, strategy_signals e strategy_stats prontas.');
+  // Controle de acesso ao app: quem pode entrar. Duas origens possíveis
+  // (coluna "source"): 'lastlink' (assinante pago, mantido pelo webhook
+  // da LastLink) e 'tester' (acesso gratuito dado na mão, com prazo de
+  // validade em expires_at). expires_at fica NULL pra assinantes
+  // LastLink, já que o corte de acesso deles é avisado pelo próprio
+  // webhook (Product_access_ended / Refund_Requested), não por prazo.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS access_grants (
+      id BIGSERIAL PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      active BOOLEAN NOT NULL DEFAULT false,
+      source TEXT NOT NULL DEFAULT 'lastlink',
+      lastlink_subscription_id TEXT,
+      last_event TEXT,
+      expires_at TIMESTAMPTZ,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `);
+
+  console.log('[persistence] tabelas double_results, strategy_signals, strategy_stats e access_grants prontas.');
 }
 
 /**
@@ -315,6 +335,76 @@ async function getDailySignalHistory(limit = 60) {
 }
 
 /**
+ * Grava/atualiza o acesso de um e-mail a partir de um evento vindo do
+ * webhook da LastLink. "active" já vem decidido por quem chamou
+ * (lastlinkWebhook.js interpreta o campo Event antes de chegar aqui).
+ * ON CONFLICT garante que reenvios duplicados de webhook (a LastLink
+ * pode reentregar o mesmo evento) não quebrem nem dupliquem nada.
+ */
+async function upsertAccessFromWebhook({ email, active, subscriptionId, eventName }) {
+  if (!ENABLED) return;
+  try {
+    await pool.query(
+      `INSERT INTO access_grants (email, active, source, lastlink_subscription_id, last_event, expires_at, updated_at)
+       VALUES ($1, $2, 'lastlink', $3, $4, NULL, now())
+       ON CONFLICT (email) DO UPDATE SET
+         active = EXCLUDED.active,
+         source = 'lastlink',
+         lastlink_subscription_id = COALESCE(EXCLUDED.lastlink_subscription_id, access_grants.lastlink_subscription_id),
+         last_event = EXCLUDED.last_event,
+         expires_at = NULL,
+         updated_at = now()`,
+      [email.toLowerCase().trim(), active, subscriptionId || null, eventName || null]
+    );
+  } catch (err) {
+    console.error(`[persistence] falha ao gravar acesso via webhook (${email}): ${err.message}`);
+  }
+}
+
+/**
+ * Dá acesso manual e gratuito a um tester, com prazo de validade.
+ * Chamado direto no banco (query manual) hoje, não por uma rota HTTP —
+ * mas fica aqui como função reaproveitável caso um dia vire um painel.
+ */
+async function grantTesterAccess(email, days = 30) {
+  if (!ENABLED) return;
+  try {
+    await pool.query(
+      `INSERT INTO access_grants (email, active, source, expires_at, updated_at)
+       VALUES ($1, true, 'tester', now() + ($2 || ' days')::interval, now())
+       ON CONFLICT (email) DO UPDATE SET
+         active = true,
+         source = 'tester',
+         expires_at = now() + ($2 || ' days')::interval,
+         updated_at = now()`,
+      [email.toLowerCase().trim(), String(days)]
+    );
+  } catch (err) {
+    console.error(`[persistence] falha ao dar acesso de tester (${email}): ${err.message}`);
+  }
+}
+
+/**
+ * Checa se um e-mail tem acesso válido agora: precisa estar "active"
+ * E (sem prazo definido OU o prazo ainda não passou). Usado pelo
+ * endpoint público /check-access.
+ */
+async function checkAccess(email) {
+  if (!ENABLED) return false;
+  try {
+    const res = await pool.query(
+      `SELECT active FROM access_grants
+       WHERE email = $1 AND active = true AND (expires_at IS NULL OR expires_at > now())`,
+      [String(email).toLowerCase().trim()]
+    );
+    return res.rows.length > 0;
+  } catch (err) {
+    console.error(`[persistence] falha ao checar acesso (${email}): ${err.message}`);
+    return false;
+  }
+}
+
+/**
  * Fecha o pool de conexões. Só relevante em testes ou em shutdown
  * gracioso — não precisa chamar isso no fluxo normal do worker rodando
  * pra sempre.
@@ -334,6 +424,9 @@ module.exports = {
   upsertStrategyStats,
   getAllStrategyStats,
   getDailySignalHistory,
+  upsertAccessFromWebhook,
+  grantTesterAccess,
+  checkAccess,
   close,
   ENABLED,
 };
