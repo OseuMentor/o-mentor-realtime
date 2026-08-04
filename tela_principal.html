@@ -330,6 +330,124 @@ footer.disclaimer {
 </head>
 <body>
 
+<style>
+#mentorGateOverlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: var(--black);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+}
+#mentorGateOverlay.hidden { display: none; }
+.mentor-gate-card { max-width: 380px; width: 100%; text-align: center; background: var(--card); border: 1px solid rgba(167,139,250,.22); border-radius: 16px; padding: 32px 28px; }
+.mentor-gate-title { font-family: 'Bebas Neue', sans-serif; font-size: 26px; color: var(--white); letter-spacing: .5px; margin-bottom: 8px; }
+.mentor-gate-sub { font-size: 13px; color: var(--muted); line-height: 1.5; margin-bottom: 20px; }
+.mentor-gate-input { width: 100%; padding: 12px 14px; border-radius: 10px; background: var(--card-2); border: 1px solid rgba(167,139,250,.3); color: var(--white); font-size: 14px; margin-bottom: 12px; box-sizing: border-box; }
+.mentor-gate-btn { width: 100%; padding: 12px; border-radius: 10px; border: none; background: var(--neon); color: #26215c; font-weight: 600; font-size: 14px; cursor: pointer; }
+.mentor-gate-btn:disabled { opacity: .6; cursor: default; }
+.mentor-gate-msg { font-size: 12px; margin-top: 12px; min-height: 16px; color: var(--muted); }
+.mentor-gate-msg.error { color: var(--red); }
+.mentor-gate-link { display: inline-block; margin-top: 16px; font-size: 12px; color: var(--neon); text-decoration: none; }
+</style>
+
+<div id="mentorGateOverlay">
+  <div class="mentor-gate-card">
+    <div class="mentor-gate-title">Acesso ao Mentor</div>
+    <div class="mentor-gate-sub">Digite o e-mail usado na assinatura pra liberar o app.</div>
+    <input type="email" id="mentorGateEmail" class="mentor-gate-input" placeholder="seu@email.com" autocomplete="email">
+    <button id="mentorGateBtn" class="mentor-gate-btn">Liberar acesso</button>
+    <div id="mentorGateMsg" class="mentor-gate-msg">&nbsp;</div>
+    <!-- TODO: trocar "#" pelo link real de checkout assim que o produto existir na LastLink -->
+    <a href="#" class="mentor-gate-link" id="mentorGateCheckoutLink">Ainda não assina? Assine aqui</a>
+  </div>
+</div>
+
+<script>
+(function() {
+  var CHECK_ACCESS_URL = 'https://o-mentor-realtime-production.up.railway.app/check-access';
+  var CACHE_KEY = 'mentor_access_cache';
+  var RECHECK_AFTER_MS = 6 * 60 * 60 * 1000; // 6 horas
+
+  var overlay = document.getElementById('mentorGateOverlay');
+  var emailInput = document.getElementById('mentorGateEmail');
+  var btn = document.getElementById('mentorGateBtn');
+  var msg = document.getElementById('mentorGateMsg');
+
+  function setMsg(text, isError) {
+    msg.textContent = text || '\u00a0';
+    msg.classList.toggle('error', !!isError);
+  }
+
+  function showOverlay() {
+    overlay.classList.remove('hidden');
+    document.documentElement.style.overflow = 'hidden';
+  }
+
+  function hideOverlay() {
+    overlay.classList.add('hidden');
+    document.documentElement.style.overflow = '';
+  }
+
+  function readCache() {
+    try { return JSON.parse(localStorage.getItem(CACHE_KEY) || 'null'); }
+    catch (e) { return null; }
+  }
+
+  function writeCache(email, active) {
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify({ email: email, active: active, checkedAt: Date.now() })); }
+    catch (e) {}
+  }
+
+  function checkAccess(email) {
+    return fetch(CHECK_ACCESS_URL + '?email=' + encodeURIComponent(email))
+      .then(function(r) { return r.json(); })
+      .then(function(data) { return !!data.active; })
+      .catch(function() { return null; }); // null = falha de rede, não sabemos dizer
+  }
+
+  function attemptUnlock(email, fromUserInput) {
+    if (btn) { btn.disabled = true; btn.textContent = 'Verificando\u2026'; }
+    checkAccess(email).then(function(active) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Liberar acesso'; }
+      if (active === null) {
+        if (fromUserInput) setMsg('N\u00e3o deu pra confirmar agora. Tente de novo em instantes.', true);
+        return;
+      }
+      writeCache(email, active);
+      if (active) {
+        hideOverlay();
+      } else if (fromUserInput) {
+        setMsg('Esse e-mail ainda n\u00e3o tem acesso liberado.', true);
+      }
+    });
+  }
+
+  var cached = readCache();
+  if (cached && cached.active && (Date.now() - cached.checkedAt) < RECHECK_AFTER_MS) {
+    hideOverlay();
+  } else if (cached && cached.email) {
+    if (emailInput) emailInput.value = cached.email;
+    attemptUnlock(cached.email, false);
+  }
+
+  if (btn) {
+    btn.addEventListener('click', function() {
+      var email = (emailInput.value || '').trim().toLowerCase();
+      if (!email || email.indexOf('@') === -1) {
+        setMsg('Digite um e-mail v\u00e1lido.', true);
+        return;
+      }
+      setMsg('');
+      attemptUnlock(email, true);
+    });
+  }
+  if (emailInput) {
+    emailInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') btn.click();
+    });
+  }
+})();
+</script>
+
 <div class="glow-orb a"></div>
 <div class="glow-orb b"></div>
 <div class="felt-pattern"></div>
