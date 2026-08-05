@@ -87,22 +87,12 @@ nav.main-nav a svg { width: 15px; height: 15px; flex-shrink: 0; }
 nav.main-nav a.active { background: rgba(192,132,252,.14); color: var(--neon); }
 nav.main-nav a:hover:not(.active) { color: var(--white); }
 
-.header-right { display: flex; align-items: center; gap: 12px; }
-.bell-btn {
-  width: 44px; height: 44px; border-radius: 50%;
-  background: var(--card); border: 1px solid rgba(167,139,250,.14);
-  display: flex; align-items: center; justify-content: center;
-  position: relative; cursor: pointer;
-}
-.bell-btn svg { width: 17px; height: 17px; }
-.bell-dot { position: absolute; top: 8px; right: 9px; width: 6px; height: 6px; border-radius: 50%; background: var(--red); }
-.avatar {
-  width: 44px; height: 44px; border-radius: 50%;
-  background: linear-gradient(155deg, var(--card-2), var(--card));
-  border: 1px solid rgba(167,139,250,.3);
-  display: flex; align-items: center; justify-content: center;
-  font-family: 'Space Grotesk', sans-serif; font-size: 14px; color: var(--neon);
-}
+.header-right { display: flex; align-items: center; gap: 14px; }
+
+.greeting-block { text-align: right; line-height: 1.15; }
+.greeting-text { font-family: 'Space Grotesk', sans-serif; font-size: 21px; letter-spacing: .5px; color: var(--white); }
+.greeting-date { font-size: 11px; color: var(--muted); margin-top: 3px; text-transform: capitalize; letter-spacing: .3px; }
+
 .brand { display: flex; align-items: center; gap: 14px; }
 .logo {
   width: 46px; height: 46px; border-radius: 50%;
@@ -114,15 +104,6 @@ nav.main-nav a:hover:not(.active) { color: var(--white); }
 .logo svg { width: 24px; height: 24px; }
 .brand-text .name { font-family: 'Space Grotesk', sans-serif; font-size: 22px; letter-spacing: 1px; line-height: 1; color: var(--white); }
 .brand-text .tag { font-size: 10px; letter-spacing: 3px; color: var(--muted); text-transform: uppercase; margin-top: 3px; }
-
-.status-pill {
-  display: flex; align-items: center; gap: 8px;
-  background: rgba(74,222,128,.08); border: 1px solid rgba(74,222,128,.3);
-  border-radius: 999px; padding: 7px 14px;
-  font-size: 12px; color: var(--green); font-weight: 500;
-}
-.status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse 1.6s ease-in-out infinite; }
-@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
 
 .section-title {
   font-family: 'Space Grotesk', sans-serif;
@@ -484,12 +465,10 @@ footer.disclaimer {
       </a>
     </nav>
     <div class="header-right">
-      <div class="bell-btn">
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9" stroke="#ede8ff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M13.7 21a2 2 0 01-3.4 0" stroke="#ede8ff" stroke-width="1.5" stroke-linecap="round"/></svg>
-        <span class="bell-dot"></span>
+      <div class="greeting-block">
+        <div class="greeting-text" id="greetingText">Bom dia, Trader</div>
+        <div class="greeting-date" id="greetingDate">domingo, 02 de agosto</div>
       </div>
-      <div class="status-pill"><span class="status-dot"></span>Ao vivo</div>
-      <div class="avatar">JV</div>
     </div>
   </header>
 
@@ -558,6 +537,26 @@ footer.disclaimer {
 </div>
 
 <script>
+/* ---------------- Saudação dinâmica + data ---------------- */
+function getGreeting(){
+  const h = new Date().getHours();
+  if (h >= 5 && h < 12) return 'Bom dia';
+  if (h >= 12 && h < 18) return 'Boa tarde';
+  return 'Boa noite';
+}
+function formatDatePt(d){
+  const dias = ['domingo','segunda-feira','terça-feira','quarta-feira','quinta-feira','sexta-feira','sábado'];
+  const meses = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+  return `${dias[d.getDay()]}, ${d.getDate().toString().padStart(2,'0')} de ${meses[d.getMonth()]}`;
+}
+function renderGreeting(){
+  const now = new Date();
+  document.getElementById('greetingText').textContent = `${getGreeting()}, Trader`;
+  document.getElementById('greetingDate').textContent = formatDatePt(now);
+}
+renderGreeting();
+setInterval(renderGreeting, 60 * 1000);
+
 /* ---------------- Checklist ---------------- */
 const checklistItems = [
   'Definir a banca do dia',
