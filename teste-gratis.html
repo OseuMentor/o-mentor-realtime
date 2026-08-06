@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Teste grátis — O Mentor | IA das Apostas</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --black:  #07070d;
+  --card:   #141420;
+  --card-2: #1b1b2b;
+  --purple: #6d28d9;
+  --violet: #a78bfa;
+  --neon:   #c084fc;
+  --white:  #ede8ff;
+  --muted:  #8b84a8;
+  --red:    #ef4360;
+  --green:  #4ade80;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--black);
+  color: var(--white);
+  font-family: 'Inter', sans-serif;
+  min-height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  overflow-x: hidden;
+}
+
+.glow-orb { position: fixed; border-radius: 50%; pointer-events: none; z-index: 0; }
+.glow-orb.a { width: 560px; height: 560px; background: radial-gradient(circle, rgba(109,40,217,.18) 0%, transparent 65%); top: -220px; right: -160px; }
+.glow-orb.b { width: 420px; height: 420px; background: radial-gradient(circle, rgba(192,132,252,.12) 0%, transparent 65%); bottom: -140px; left: -100px; }
+
+.card {
+  position: relative; z-index: 1;
+  max-width: 420px; width: 100%;
+  background: var(--card);
+  border: 1px solid rgba(167,139,250,.22);
+  border-radius: 20px;
+  padding: 36px 32px;
+  text-align: center;
+}
+
+.logo {
+  width: 56px; height: 56px; border-radius: 50%;
+  background: radial-gradient(circle at 32% 30%, var(--neon), var(--purple) 70%);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 26px rgba(192,132,252,.5);
+  margin: 0 auto 18px;
+}
+.logo svg { width: 28px; height: 28px; }
+
+.brand-name { font-family: 'Space Grotesk', sans-serif; font-size: 20px; letter-spacing: 1px; color: var(--white); }
+.brand-tag { font-size: 10px; letter-spacing: 3px; color: var(--muted); text-transform: uppercase; margin-top: 4px; margin-bottom: 22px; }
+
+.headline { font-family: 'Space Grotesk', sans-serif; font-size: 28px; letter-spacing: .5px; color: var(--white); line-height: 1.15; margin-bottom: 10px; }
+.headline .neon { color: var(--neon); }
+.subtext { font-size: 13.5px; color: var(--muted); line-height: 1.6; margin-bottom: 26px; }
+
+.form-block { display: flex; flex-direction: column; gap: 12px; }
+.email-input {
+  width: 100%; padding: 13px 16px; border-radius: 10px;
+  background: var(--card-2); border: 1px solid rgba(167,139,250,.3);
+  color: var(--white); font-size: 14px; box-sizing: border-box;
+}
+.email-input::placeholder { color: var(--muted); }
+.email-input:focus { outline: none; border-color: var(--neon); }
+
+.submit-btn {
+  width: 100%; padding: 13px; border-radius: 10px; border: none;
+  background: var(--neon); color: #26215c; font-weight: 600; font-size: 14px;
+  cursor: pointer; transition: opacity .2s ease;
+}
+.submit-btn:hover { opacity: .9; }
+.submit-btn:disabled { opacity: .55; cursor: default; }
+
+/* honeypot anti-bot: campo invisível pra humano, bots costumam preencher tudo */
+.hp-field { position: absolute; left: -9999px; top: -9999px; opacity: 0; height: 0; width: 0; }
+
+.msg { font-size: 12.5px; margin-top: 4px; min-height: 16px; }
+.msg.error { color: var(--red); }
+.msg.success { color: var(--green); }
+
+.success-block { display: none; }
+.success-block.show { display: block; }
+.success-icon { font-size: 40px; margin-bottom: 10px; }
+.success-title { font-family: 'Space Grotesk', sans-serif; font-size: 22px; color: var(--white); margin-bottom: 8px; }
+.success-sub { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 22px; }
+.enter-btn {
+  display: inline-block; width: 100%; padding: 13px; border-radius: 10px;
+  background: var(--neon); color: #26215c; font-weight: 600; font-size: 14px;
+  text-decoration: none; box-sizing: border-box;
+}
+
+.disclaimer { font-size: 10.5px; color: var(--muted); line-height: 1.6; margin-top: 24px; }
+</style>
+</head>
+<body>
+
+<div class="glow-orb a"></div>
+<div class="glow-orb b"></div>
+
+<div class="card">
+  <div class="logo">
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="12" cy="12" r="9" stroke="#ede8ff" stroke-width="1.4"/>
+      <circle cx="12" cy="12" r="2.4" fill="#ede8ff"/>
+      <path d="M12 3V6M12 18V21M3 12H6M18 12H21" stroke="#ede8ff" stroke-width="1.4" stroke-linecap="round"/>
+    </svg>
+  </div>
+  <div class="brand-name">O MENTOR</div>
+  <div class="brand-tag">IA das Apostas</div>
+
+  <div id="formBlock">
+    <div class="headline">Teste grátis por <span class="neon">2 dias</span></div>
+    <div class="subtext">Digite seu e-mail e libere o acesso completo ao Mentor por 48 horas, sem custo. Vale só uma vez por e-mail.</div>
+    <div class="form-block">
+      <input type="email" id="emailInput" class="email-input" placeholder="seu@email.com" autocomplete="email">
+      <input type="text" id="hpField" class="hp-field" tabindex="-1" autocomplete="off">
+      <button id="submitBtn" class="submit-btn">Quero testar grátis</button>
+      <div id="msg" class="msg">&nbsp;</div>
+    </div>
+  </div>
+
+  <div id="successBlock" class="success-block">
+    <div class="success-icon">🎉</div>
+    <div class="success-title">Acesso liberado!</div>
+    <div class="success-sub">Seu teste grátis de 2 dias já está ativo. Clique abaixo pra entrar.</div>
+    <a href="tela_principal.html" class="enter-btn">Entrar no Mentor agora</a>
+  </div>
+
+  <div class="disclaimer">
+    Ferramenta de análise estatística. Resultados passados não garantem resultados futuros.
+  </div>
+</div>
+
+<script>
+const TRIAL_SIGNUP_URL = 'https://o-mentor-realtime-production.up.railway.app/trial-signup';
+const CACHE_KEY = 'mentor_access_cache'; // mesma chave que a trava das outras páginas usa
+
+const emailInput = document.getElementById('emailInput');
+const hpField = document.getElementById('hpField');
+const btn = document.getElementById('submitBtn');
+const msg = document.getElementById('msg');
+const formBlock = document.getElementById('formBlock');
+const successBlock = document.getElementById('successBlock');
+
+function setMsg(text, kind) {
+  msg.textContent = text || '\u00a0';
+  msg.className = 'msg' + (kind ? ' ' + kind : '');
+}
+
+function showSuccess(email) {
+  // Grava o cache que a trava das outras 4 páginas já sabe ler —
+  // assim, ao clicar em "Entrar no Mentor agora", a pessoa cai direto
+  // dentro do app, sem precisar digitar o e-mail de novo.
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ email: email, active: true, checkedAt: Date.now() }));
+  } catch (e) {}
+  formBlock.style.display = 'none';
+  successBlock.classList.add('show');
+}
+
+btn.addEventListener('click', async () => {
+  // Honeypot: campo invisível pra humano. Se veio preenchido, é bot —
+  // finge sucesso silenciosamente, sem gastar uma tentativa de verdade.
+  if (hpField.value) {
+    setMsg('');
+    return;
+  }
+
+  const email = (emailInput.value || '').trim().toLowerCase();
+  if (!email || email.indexOf('@') === -1 || email.indexOf('.') === -1) {
+    setMsg('Digite um e-mail válido.', 'error');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Liberando...';
+  setMsg('');
+
+  try {
+    const resp = await fetch(TRIAL_SIGNUP_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email }),
+    });
+    const data = await resp.json();
+
+    if (data.ok) {
+      showSuccess(email);
+    } else if (data.reason === 'already_used') {
+      setMsg('Esse e-mail já usou o teste grátis antes.', 'error');
+    } else if (data.reason === 'invalid_email') {
+      setMsg('Digite um e-mail válido.', 'error');
+    } else {
+      setMsg('Não deu pra liberar agora. Tenta de novo em instantes.', 'error');
+    }
+  } catch (e) {
+    setMsg('Falha de conexão. Verifica sua internet e tenta de novo.', 'error');
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Quero testar grátis';
+});
+
+emailInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') btn.click();
+});
+</script>
+
+</body>
+</html>
