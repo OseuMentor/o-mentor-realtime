@@ -61,6 +61,17 @@ class RealtimeGateway {
     if (req.method === 'GET' && urlPath === '/check-access') {
       return this._handleCheckAccess(req, res);
     }
+    if (req.method === 'OPTIONS' && urlPath === '/trial-signup') {
+      res.writeHead(204, {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      });
+      return res.end();
+    }
+    if (req.method === 'POST' && urlPath === '/trial-signup') {
+      return this._handleTrialSignup(req, res);
+    }
     if (req.method === 'GET' && urlPath === '/stats') {
       return this._handleStats(req, res);
     }
@@ -116,6 +127,42 @@ class RealtimeGateway {
       console.error(`[gateway] falha ao checar acesso: ${err.message}`);
       res.end(JSON.stringify({ active: false }));
     }
+  }
+
+  // Auto-cadastro do teste grátis de 2 dias, chamado pela
+  // teste-gratis.html. Como essa página roda no GitHub Pages e chama
+  // um domínio diferente (Railway) com corpo JSON, o navegador manda
+  // um preflight OPTIONS antes do POST de verdade — precisa responder
+  // os dois.
+  _handleTrialSignup(req, res) {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk; });
+    req.on('end', async () => {
+      let email;
+      try {
+        const parsed = JSON.parse(body);
+        email = parsed.email;
+      } catch (e) {
+        res.writeHead(400, { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ ok: false, reason: 'invalid_request' }));
+      }
+
+      const isValidEmail = typeof email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+      if (!isValidEmail) {
+        res.writeHead(200, { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ ok: false, reason: 'invalid_email' }));
+      }
+
+      try {
+        const created = await persistence.grantTrialAccess(email, 2);
+        res.writeHead(200, { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: created, reason: created ? null : 'already_used' }));
+      } catch (err) {
+        console.error(`[gateway] falha no trial-signup: ${err.message}`);
+        res.writeHead(500, { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, reason: 'server_error' }));
+      }
+    });
   }
 
   // Dado público e só-leitura (nenhuma informação sensível), por isso
