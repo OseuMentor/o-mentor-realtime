@@ -362,6 +362,41 @@ async function upsertAccessFromWebhook({ email, active, subscriptionId, eventNam
 }
 
 /**
+ * Auto-cadastro do teste grátis (usado pelo endpoint público
+ * /trial-signup, chamado direto pela teste-gratis.html). Diferente de
+ * grantTesterAccess (que você usa na mão pra dar acesso a alguém
+ * específico e SEMPRE sobrescreve), essa função só cria a linha se o
+ * e-mail NUNCA existiu antes na tabela — "ON CONFLICT DO NOTHING".
+ *
+ * Isso garante duas coisas de uma vez, sem precisar de lógica extra:
+ *   1. Um e-mail só consegue o teste grátis uma vez na vida (mesmo
+ *      depois de expirado, tentar de novo com o mesmo e-mail não cria
+ *      uma linha nova).
+ *   2. Nunca sobrescreve por acidente um e-mail que já é assinante
+ *      pago (LastLink) ou tester manual — se a linha já existe por
+ *      qualquer motivo, essa função simplesmente não mexe nela.
+ *
+ * Retorna true se criou o acesso agora, false se o e-mail já existia
+ * (e portanto não é elegível).
+ */
+async function grantTrialAccess(email, days = 2) {
+  if (!ENABLED) return false;
+  try {
+    const res = await pool.query(
+      `INSERT INTO access_grants (email, active, source, expires_at)
+       VALUES ($1, true, 'trial', now() + ($2 || ' days')::interval)
+       ON CONFLICT (email) DO NOTHING
+       RETURNING id`,
+      [String(email).toLowerCase().trim(), String(days)]
+    );
+    return res.rows.length > 0;
+  } catch (err) {
+    console.error(`[persistence] falha ao dar acesso de trial (${email}): ${err.message}`);
+    return false;
+  }
+}
+
+/**
  * Dá acesso manual e gratuito a um tester, com prazo de validade.
  * Chamado direto no banco (query manual) hoje, não por uma rota HTTP —
  * mas fica aqui como função reaproveitável caso um dia vire um painel.
@@ -426,6 +461,7 @@ module.exports = {
   getDailySignalHistory,
   upsertAccessFromWebhook,
   grantTesterAccess,
+  grantTrialAccess,
   checkAccess,
   close,
   ENABLED,
