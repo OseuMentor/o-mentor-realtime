@@ -440,6 +440,30 @@ async function checkAccess(email) {
 }
 
 /**
+ * Igual a checkAccess, mas também devolve a ORIGEM do acesso ('trial',
+ * 'tester' ou 'lastlink'). Existe separada pra não mudar o formato de
+ * retorno de checkAccess (evita quebrar quem já depende só do
+ * booleano). O frontend usa isso pra decidir se trava a grade de
+ * estratégias na ferramentas.html — teste grátis nunca inclui as 14
+ * estratégias detalhadas, só o Sinal ao vivo da Tela Início.
+ */
+async function getAccessInfo(email) {
+  if (!ENABLED) return { active: false, source: null };
+  try {
+    const res = await pool.query(
+      `SELECT active, source FROM access_grants
+       WHERE email = $1 AND active = true AND (expires_at IS NULL OR expires_at > now())`,
+      [String(email).toLowerCase().trim()]
+    );
+    if (res.rows.length === 0) return { active: false, source: null };
+    return { active: true, source: res.rows[0].source };
+  } catch (err) {
+    console.error(`[persistence] falha ao checar acesso detalhado (${email}): ${err.message}`);
+    return { active: false, source: null };
+  }
+}
+
+/**
  * Fecha o pool de conexões. Só relevante em testes ou em shutdown
  * gracioso — não precisa chamar isso no fluxo normal do worker rodando
  * pra sempre.
@@ -463,6 +487,7 @@ module.exports = {
   grantTesterAccess,
   grantTrialAccess,
   checkAccess,
+  getAccessInfo,
   close,
   ENABLED,
 };
