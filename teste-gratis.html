@@ -160,7 +160,7 @@ function showSuccess(email) {
   // assim, ao clicar em "Entrar no Mentor agora", a pessoa cai direto
   // dentro do app, sem precisar digitar o e-mail de novo.
   try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify({ email: email, active: true, checkedAt: Date.now() }));
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ email: email, active: true, source: 'trial', checkedAt: Date.now() }));
   } catch (e) {}
   formBlock.style.display = 'none';
   successBlock.classList.add('show');
