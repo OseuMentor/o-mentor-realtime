@@ -268,29 +268,40 @@ footer.disclaimer {
     catch (e) { return null; }
   }
 
-  function writeCache(email, active) {
-    try { localStorage.setItem(CACHE_KEY, JSON.stringify({ email: email, active: active, checkedAt: Date.now() })); }
+  function writeCache(email, active, source) {
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify({ email: email, active: active, source: source || null, checkedAt: Date.now() })); }
+    catch (e) {}
+  }
+
+  function notifyAccessGranted(email, source) {
+    // Guarda num global também, não só dispara o evento: se essa
+    // função rodar antes do resto da página ter registrado o
+    // addEventListener (comum no caminho síncrono do cache), o evento
+    // se perderia. Quem for escutar confere esse global primeiro.
+    window.mentorAccessInfo = { email: email, source: source || null };
+    try { window.dispatchEvent(new CustomEvent('mentorAccessGranted', { detail: { email: email, source: source || null } })); }
     catch (e) {}
   }
 
   function checkAccess(email) {
     return fetch(CHECK_ACCESS_URL + '?email=' + encodeURIComponent(email))
       .then(function(r) { return r.json(); })
-      .then(function(data) { return !!data.active; })
+      .then(function(data) { return { active: !!data.active, source: data.source || null }; })
       .catch(function() { return null; }); // null = falha de rede, não sabemos dizer
   }
 
   function attemptUnlock(email, fromUserInput) {
     if (btn) { btn.disabled = true; btn.textContent = 'Verificando\u2026'; }
-    checkAccess(email).then(function(active) {
+    checkAccess(email).then(function(result) {
       if (btn) { btn.disabled = false; btn.textContent = 'Liberar acesso'; }
-      if (active === null) {
+      if (result === null) {
         if (fromUserInput) setMsg('N\u00e3o deu pra confirmar agora. Tente de novo em instantes.', true);
         return;
       }
-      writeCache(email, active);
-      if (active) {
+      writeCache(email, result.active, result.source);
+      if (result.active) {
         hideOverlay();
+        notifyAccessGranted(email, result.source);
       } else if (fromUserInput) {
         setMsg('Esse e-mail ainda n\u00e3o tem acesso liberado.', true);
       }
@@ -300,6 +311,7 @@ footer.disclaimer {
   var cached = readCache();
   if (cached && cached.active && (Date.now() - cached.checkedAt) < RECHECK_AFTER_MS) {
     hideOverlay();
+    notifyAccessGranted(cached.email, cached.source);
   } else if (cached && cached.email) {
     if (emailInput) emailInput.value = cached.email;
     attemptUnlock(cached.email, false);
