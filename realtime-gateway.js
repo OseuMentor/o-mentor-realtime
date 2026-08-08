@@ -117,15 +117,15 @@ class RealtimeGateway {
     });
 
     if (!email) {
-      return res.end(JSON.stringify({ active: false }));
+      return res.end(JSON.stringify({ active: false, source: null }));
     }
 
     try {
-      const active = await persistence.checkAccess(email);
-      res.end(JSON.stringify({ active }));
+      const info = await persistence.getAccessInfo(email);
+      res.end(JSON.stringify(info));
     } catch (err) {
       console.error(`[gateway] falha ao checar acesso: ${err.message}`);
-      res.end(JSON.stringify({ active: false }));
+      res.end(JSON.stringify({ active: false, source: null }));
     }
   }
 
