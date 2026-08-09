@@ -27,6 +27,56 @@ const BUFFER_SIZE = 100;
 const PORT = process.env.PORT || 8081;
 const INGEST_SECRET = process.env.INGEST_SECRET || '';
 
+// ---------------------------------------------------------------
+// Rate limiting simples (janela fixa, em memória) — protege os
+// endpoints públicos (/trial-signup, /check-access) contra spam/abuso
+// automatizado, sem precisar de nenhuma dependência nova nem de banco
+// externo. Como o serviço roda numa única instância no Railway (não
+// há múltiplas réplicas dividindo o tráfego), guardar isso em memória
+// é suficiente — se um dia vocês escalarem pra múltiplas réplicas,
+// isso precisaria virar algo compartilhado (ex: uma tabela no
+// Postgres), mas não há necessidade disso agora.
+// ---------------------------------------------------------------
+const rateLimitBuckets = new Map(); // "endpoint:ip" -> { count, windowStart }
+
+// Limpa entradas antigas de tempos em tempos, pra não vazar memória
+// com IPs que só apareceram uma vez.
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, bucket] of rateLimitBuckets.entries()) {
+    if (now - bucket.windowStart > 30 * 60 * 1000) rateLimitBuckets.delete(key);
+  }
+}, 10 * 60 * 1000);
+
+function getClientIp(req) {
+  // Railway roda atrás de proxy — o IP real do visitante vem no
+  // cabeçalho x-forwarded-for (pode ter vários IPs separados por
+  // vírgula se passar por mais de um proxy; o primeiro é o cliente).
+  const forwarded = req.headers['x-forwarded-for'];
+  if (forwarded) return forwarded.split(',')[0].trim();
+  return req.socket.remoteAddress || 'desconhecido';
+}
+
+/**
+ * Retorna true se a requisição PODE seguir, false se estourou o
+ * limite. "limit" chamadas por "windowMs" milissegundos, por IP, por
+ * endpoint (endpoints diferentes têm limites independentes).
+ */
+function isRateLimited(req, endpoint, limit, windowMs) {
+  const ip = getClientIp(req);
+  const key = `${endpoint}:${ip}`;
+  const now = Date.now();
+  const bucket = rateLimitBuckets.get(key);
+
+  if (!bucket || now - bucket.windowStart > windowMs) {
+    rateLimitBuckets.set(key, { count: 1, windowStart: now });
+    return false;
+  }
+
+  bucket.count++;
+  return bucket.count > limit;
+}
+
 class RealtimeGateway {
   constructor({ port = PORT } = {}) {
     this.buffer = [];
@@ -108,6 +158,11 @@ class RealtimeGateway {
   // Não expõe nada além de true/false — não é informação sensível o
   // suficiente pra justificar autenticação nesse endpoint específico.
   async _handleCheckAccess(req, res) {
+    if (isRateLimited(req, 'check-access', 60, 5 * 60 * 1000)) {
+      res.writeHead(429, { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ active: false, source: null, reason: 'rate_limited' }));
+    }
+
     const fullUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     const email = fullUrl.searchParams.get('email');
 
@@ -135,6 +190,11 @@ class RealtimeGateway {
   // um preflight OPTIONS antes do POST de verdade — precisa responder
   // os dois.
   _handleTrialSignup(req, res) {
+    if (isRateLimited(req, 'trial-signup', 5, 30 * 60 * 1000)) {
+      res.writeHead(429, { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ ok: false, reason: 'rate_limited' }));
+    }
+
     let body = '';
     req.on('data', (chunk) => { body += chunk; });
     req.on('end', async () => {
