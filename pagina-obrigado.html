@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Compra confirmada — O Seu Mentor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0b1a;
+    --bg-panel: #15122a;
+    --border: #2a2645;
+    --text: #e8e6f2;
+    --text-dim: #9d97b8;
+    --accent: #7c5cff;
+    --accent-soft: rgba(124, 92, 255, 0.14);
+    --success: #4ade80;
+    --mono: 'JetBrains Mono', monospace;
+    --display: 'Space Grotesk', sans-serif;
+    --body: 'Inter', sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: radial-gradient(circle at 50% -10%, #1b1638 0%, var(--bg) 55%);
+    color: var(--text);
+    font-family: var(--body);
+    line-height: 1.6;
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .card {
+    max-width: 560px;
+    width: 100%;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 48px 40px;
+  }
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+  .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--success);
+    box-shadow: 0 0 0 4px rgba(74, 222, 128, 0.15);
+  }
+  .status span {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--success);
+  }
+  h1 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 30px;
+    margin: 0 0 12px;
+    letter-spacing: -0.01em;
+  }
+  .lead {
+    color: var(--text-dim);
+    font-size: 15px;
+    margin: 0 0 36px;
+  }
+  .steps {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 32px;
+  }
+  .step {
+    display: flex;
+    gap: 16px;
+    padding: 18px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .step:last-child { border-bottom: none; }
+  .step-num {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent);
+    background: var(--accent-soft);
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .step-body h3 {
+    font-family: var(--display);
+    font-size: 15px;
+    font-weight: 700;
+    margin: 0 0 4px;
+  }
+  .step-body p {
+    font-size: 14px;
+    color: var(--text-dim);
+    margin: 0;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 14px 20px;
+    border-radius: 10px;
+    font-family: var(--body);
+    font-weight: 600;
+    font-size: 15px;
+    text-decoration: none;
+    margin-top: 8px;
+    transition: opacity 0.15s ease;
+  }
+  .btn:hover { opacity: 0.88; }
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+  }
+  .btn-secondary {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    margin-top: 12px;
+  }
+  .note {
+    margin-top: 32px;
+    padding: 16px 18px;
+    background: rgba(124, 92, 255, 0.08);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+  .note strong { color: var(--text); }
+  footer {
+    margin-top: 32px;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  footer a { color: var(--accent); text-decoration: none; }
+  .fill {
+    font-family: var(--mono);
+    color: var(--accent);
+    font-size: 0.85em;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+
+  <div class="status">
+    <div class="dot"></div>
+    <span>Assinatura confirmada</span>
+  </div>
+
+  <h1>Seu acesso está liberado.</h1>
+  <p class="lead">Pagamento aprovado com sucesso. Siga os passos abaixo para começar a usar a plataforma agora.</p>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h3>Acesse a plataforma</h3>
+        <p>Use o link abaixo para entrar com o e-mail cadastrado na compra.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h3>Entre no grupo exclusivo de assinantes</h3>
+        <p>Comunidade fechada para dúvidas, avisos e acompanhamento direto.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h3>Alguma dúvida?</h3>
+        <p>Nosso suporte responde por lá mesmo, sem burocracia.</p>
+      </div>
+    </div>
+  </div>
+
+  <a href="[LINK_DO_APP]" class="btn btn-primary">Acessar a plataforma →</a>
+  <a href="[LINK_TELEGRAM_VIP]" class="btn btn-secondary">Entrar no grupo de assinantes</a>
+
+  <div class="note">
+    <strong>Antes de começar:</strong> a plataforma é uma ferramenta de análise estatística e apoio à decisão. Os resultados dependem de disciplina e gestão de risco de cada pessoa — não existe garantia de ganho. Use com responsabilidade.
+  </div>
+
+  <footer>
+    Dúvidas? <a href="mailto:[EMAIL_SUPORTE]">[EMAIL_SUPORTE]</a>
+  </footer>
+
+</div>
+</body>
+</html>
