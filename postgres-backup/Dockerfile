@@ -1,16 +1,13 @@
-FROM python:3.11-slim
-
-# pg_dump nao vem no python:slim por padrao -- precisa instalar o
-# cliente do Postgres separadamente.
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends postgresql-client \
-    && rm -rf /var/lib/apt/lists/*
+FROM node:20-bullseye-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY package.json ./
 
-COPY backup.py .
+RUN yarn install --production --network-timeout 600000
 
-CMD ["python", "-u", "backup.py"]
+COPY . .
+
+ENV NODE_ENV=production
+
+CMD ["node", "realtime-gateway.js"]
