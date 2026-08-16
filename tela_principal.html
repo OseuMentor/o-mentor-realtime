@@ -19,6 +19,7 @@
   --red:    #ef4360;
   --black-tile: #17171f;
   --green:  #4ade80;
+  --amber:  #fbbf24;
 }
 
 * { margin:0; padding:0; box-sizing:border-box; }
@@ -221,58 +222,42 @@ nav.main-nav a:hover:not(.active) { color: var(--white); }
   text-shadow: 0 0 24px rgba(192,132,252,.25);
 }
 
-.history-panel {
+.today-summary-panel {
   background: var(--card);
   border: 1px solid rgba(167,139,250,.16);
   border-radius: 16px;
-  padding: 18px;
-  overflow: visible;
-  margin-bottom: 40px;
+  padding: 20px 22px;
+  margin-bottom: 32px;
 }
-.history-row { display: flex; gap: 10px; overflow-x: hidden; overflow-y: visible; padding-bottom: 4px; }
-.history-row + .history-row { margin-top: 12px; }
-
-.tile { flex-shrink: 0; width: 66px; text-align: center; }
-.tile-box {
-  width: 66px; height: 66px; border-radius: 10px;
-  display: flex; align-items: center; justify-content: center;
-  font-family: 'JetBrains Mono', monospace; font-size: 26px;
-  border: 1px solid rgba(255,255,255,.06);
-  transition: transform .3s ease;
+.today-summary-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  margin-bottom: 16px; flex-wrap: wrap; gap: 6px;
 }
-.tile-box.red { background: var(--red); color: #3a0410; }
-.tile-box.black { background: var(--black-tile); color: var(--white); border-color: rgba(167,139,250,.25); }
-.tile-box.white { background: var(--white); color: var(--purple); }
-.tile-time { font-size: 10.5px; color: var(--muted); margin-top: 6px; letter-spacing: .5px; }
-.tile.entering .tile-box { animation: enter .4s ease-out; }
-@keyframes enter { from { transform: scale(0.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-
-.actions { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-.action-btn {
-  position: relative; overflow: hidden;
-  background: linear-gradient(155deg, var(--card-2), var(--card));
-  border: 1px solid rgba(167,139,250,.22);
-  border-radius: 16px;
-  padding: 30px 20px;
-  text-align: center;
-  cursor: pointer;
-  transition: border-color .25s ease, transform .2s ease, box-shadow .25s ease;
+.today-summary-title {
+  font-family: 'Space Grotesk', sans-serif; font-size: 19px; letter-spacing: .5px; color: var(--white);
 }
-.action-btn:hover { border-color: rgba(192,132,252,.55); transform: translateY(-2px); box-shadow: 0 12px 30px rgba(109,40,217,.25); }
-.action-btn .icon-wrap {
-  width: 44px; height: 44px; border-radius: 50%;
-  background: rgba(192,132,252,.1); border: 1px solid rgba(192,132,252,.3);
-  display: flex; align-items: center; justify-content: center;
-  margin: 0 auto 14px;
+.today-summary-sub { font-size: 11.5px; color: var(--muted); }
+.today-summary-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+  margin-bottom: 14px;
 }
-.action-btn .icon-wrap svg { width: 20px; height: 20px; }
-.action-btn .label {
-  font-family: 'Space Grotesk', sans-serif; font-size: 24px; letter-spacing: 1px;
-  color: var(--white);
+.ts-stat {
+  background: rgba(255,255,255,.02);
+  border: 1px solid rgba(255,255,255,.05);
+  border-radius: 12px; padding: 14px 8px; text-align: center;
 }
-.action-btn .sub { font-size: 11.5px; color: var(--muted); margin-top: 6px; letter-spacing: .3px; }
-.action-btn.primary { border-color: rgba(192,132,252,.35); }
-.action-btn.primary .icon-wrap { background: rgba(192,132,252,.16); }
+.ts-dot { width: 9px; height: 9px; border-radius: 50%; margin: 0 auto 8px; }
+.ts-dot.win { background: var(--green); box-shadow: 0 0 8px rgba(74,222,128,.5); }
+.ts-dot.g1 { background: var(--amber); box-shadow: 0 0 8px rgba(251,191,36,.5); }
+.ts-dot.branco { background: var(--white); border: 2px solid var(--purple); }
+.ts-dot.loss { background: var(--red); box-shadow: 0 0 8px rgba(239,67,96,.5); }
+.ts-num { font-family: 'JetBrains Mono', monospace; font-size: 22px; color: var(--white); }
+.ts-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; margin-top: 2px; }
+.today-summary-link {
+  display: block; text-align: center; font-size: 12.5px; color: var(--neon);
+  text-decoration: none; padding-top: 10px; border-top: 1px solid rgba(167,139,250,.1);
+}
+.today-summary-link:hover { text-decoration: underline; }
 
 .trend-strip {
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;
@@ -530,22 +515,18 @@ footer.disclaimer {
 
   <div class="trend-strip" id="trendStrip"></div>
 
-  <div class="section-title">Histórico</div>
-
-  <div class="history-panel">
-    <div class="history-row" id="row1"></div>
-    <div class="history-row" id="row2"></div>
-  </div>
-
-  <div class="actions">
-    <div class="action-btn primary" style="grid-column: 1 / -1;">
-      <div class="chip-deco"></div>
-      <div class="icon-wrap">
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M14.7 6.3a4 4 0 00-5.4 5.4L4 17v3h3l5.3-5.3a4 4 0 005.4-5.4l-2.1 2.1-1.6-1.6 2.1-2.1z" stroke="#c084fc" stroke-width="1.6" stroke-linejoin="round"/></svg>
-      </div>
-      <div class="label">Ferramentas</div>
-      <div class="sub">Estratégias e calculadoras</div>
+  <div class="today-summary-panel" id="todaySummaryPanel">
+    <div class="today-summary-head">
+      <div class="today-summary-title">Resumo de Hoje</div>
+      <div class="today-summary-sub" id="todaySummarySub">Carregando...</div>
     </div>
+    <div class="today-summary-grid" id="todaySummaryGrid">
+      <div class="ts-stat"><div class="ts-dot win"></div><div class="ts-num">--</div><div class="ts-label">Win</div></div>
+      <div class="ts-stat"><div class="ts-dot g1"></div><div class="ts-num">--</div><div class="ts-label">G1</div></div>
+      <div class="ts-stat"><div class="ts-dot branco"></div><div class="ts-num">--</div><div class="ts-label">Branco</div></div>
+      <div class="ts-stat"><div class="ts-dot loss"></div><div class="ts-num">--</div><div class="ts-label">Loss</div></div>
+    </div>
+    <a href="historico.html" class="today-summary-link">Ver histórico completo →</a>
   </div>
   <div style="height:16px"></div>
 
@@ -557,6 +538,7 @@ footer.disclaimer {
 <script>
 const WS_URL = 'wss://o-mentor-realtime-production.up.railway.app';
 const STATS_URL = 'https://o-mentor-realtime-production.up.railway.app/stats';
+const HISTORY_URL = 'https://o-mentor-realtime-production.up.railway.app/history';
 const STALE_AFTER_MS = 60000; // 60s sem nenhuma mensagem = força reconexão
 
 let results = [];
@@ -710,11 +692,10 @@ function connect() {
     const msg = JSON.parse(evt.data);
     if (msg.type === 'snapshot') {
       results = (msg.history || []).slice(-MAX_HISTORY);
-      renderAllRows();
       renderTrendsFromServer(msg.trends);
       renderBestStrategy(msg.strategies, msg.confluence);
     } else if (msg.type === 'new_result') {
-      pushTileToRows(msg.result);
+      updateResultsBuffer(msg.result);
       renderTrendsFromServer(msg.trends);
       renderBestStrategy(msg.strategies, msg.confluence);
       // Primeiro avalia se este resultado resolve um sinal já em aberto
@@ -945,7 +926,7 @@ function renderBestStrategy(strategies, confluence){
   renderDiagram(featured);
 }
 
-const MAX_HISTORY = 22; // 11 por linha x 2 linhas, sem precisar de rolagem
+const MAX_HISTORY = 22; // mantido em memória para alimentar o diagrama da estratégia em destaque
 
 function fmtTime(iso){
   if (!iso) return '--:--';
@@ -953,42 +934,12 @@ function fmtTime(iso){
   return d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
 }
 
-function makeTile(item, entering){
-  const el = document.createElement('div');
-  el.className = 'tile' + (entering ? ' entering' : '');
-  const label = item.color === 'white' ? '&#10070;' : item.number;
-  el.innerHTML = `<div class="tile-box ${item.color}">${label}</div><div class="tile-time">${fmtTime(item.timestamp)}</div>`;
-  return el;
-}
-
-// Renderiza as duas linhas a partir do array "results" (do mais antigo pro
-// mais recente): linha 1 recebe a primeira metade, linha 2 a segunda metade,
-// formando uma fita contínua de até 28 resultados sem repetir nenhum.
-function renderAllRows(animateLast){
-  const half = Math.ceil(results.length / 2);
-  const row1Items = results.slice(0, half);
-  const row2Items = results.slice(half);
-
-  const row1 = document.getElementById('row1');
-  const row2 = document.getElementById('row2');
-  row1.innerHTML = '';
-  row2.innerHTML = '';
-  row1Items.forEach(item => row1.appendChild(makeTile(item, false)));
-  row2Items.forEach((item, i) => {
-    const isLast = animateLast && i === row2Items.length - 1;
-    row2.appendChild(makeTile(item, isLast));
-  });
-}
-
-// Mantido por compatibilidade com o snapshot inicial (chama a mesma lógica).
-function renderRow(){
-  renderAllRows(false);
-}
-
-function pushTileToRows(item){
+// A fita de resultados (tiles) não é mais exibida na Tela Início --
+// esse array continua existindo só para alimentar o diagrama da
+// "Estratégia em destaque" (renderDiagram usa results.slice(-N)).
+function updateResultsBuffer(item){
   results.push(item);
   if (results.length > MAX_HISTORY) results.shift();
-  renderAllRows(true);
 }
 
 /* ---------------- Saudação dinâmica + data ---------------- */
@@ -1014,9 +965,52 @@ function renderGreeting(){
 renderGreeting();
 setInterval(renderGreeting, 60 * 1000); // recalcula a cada minuto, pra trocar sozinha quando virar o período do dia
 
+/* ---------------- Resumo de Hoje (card que substituiu o botão Ferramentas) ---------------- */
+// Reaproveita o mesmo endpoint /history que a tela de Histórico já usa.
+// Retorna a data de hoje no fuso de Brasília, no mesmo formato 'YYYY-MM-DD'
+// que o backend usa em /history -- assim bate certinho com a linha do dia
+// atual, independente do fuso horário do navegador de quem está acessando.
+function todayDateStrSP(){
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now);
+  const y = parts.find(p => p.type === 'year').value;
+  const m = parts.find(p => p.type === 'month').value;
+  const d = parts.find(p => p.type === 'day').value;
+  return `${y}-${m}-${d}`;
+}
+
+function renderTodaySummary(row){
+  const grid = document.getElementById('todaySummaryGrid');
+  grid.innerHTML = `
+    <div class="ts-stat"><div class="ts-dot win"></div><div class="ts-num">${row.win}</div><div class="ts-label">Win</div></div>
+    <div class="ts-stat"><div class="ts-dot g1"></div><div class="ts-num">${row.g1}</div><div class="ts-label">G1</div></div>
+    <div class="ts-stat"><div class="ts-dot branco"></div><div class="ts-num">${row.branco}</div><div class="ts-label">Branco</div></div>
+    <div class="ts-stat"><div class="ts-dot loss"></div><div class="ts-num">${row.loss}</div><div class="ts-label">Loss</div></div>
+  `;
+  const sub = document.getElementById('todaySummarySub');
+  sub.textContent = row.total > 0 ? `${row.total} sinal(is) hoje` : 'Nenhum sinal ainda hoje';
+}
+
+async function fetchTodaySummary(){
+  try {
+    const resp = await fetch(HISTORY_URL);
+    if (!resp.ok) throw new Error('resposta nao-ok: ' + resp.status);
+    const data = await resp.json();
+    const todayStr = todayDateStrSP();
+    const todayRow = data.find(r => r.date === todayStr);
+    renderTodaySummary(todayRow || { win: 0, g1: 0, branco: 0, loss: 0, total: 0 });
+  } catch (err) {
+    console.error('[tela_principal] falha ao buscar /history:', err);
+    const sub = document.getElementById('todaySummarySub');
+    if (sub) sub.textContent = 'Não foi possível carregar agora';
+  }
+}
+
 connect();
 fetchStrategyStats();
 setInterval(fetchStrategyStats, 5 * 60 * 1000); // mesmo ciclo do statsBatchJob no servidor
+fetchTodaySummary();
+setInterval(fetchTodaySummary, 5 * 60 * 1000); // mesmo ciclo de atualização do histórico
 </script>
 
 </body>
