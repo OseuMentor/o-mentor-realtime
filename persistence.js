@@ -172,6 +172,43 @@ async function saveResult(result) {
 }
 
 /**
+ * Busca os últimos N resultados já gravados, do mais antigo pro mais
+ * recente (mesma ordem que o buffer em memória do realtime-gateway
+ * espera). Usado no start() do gateway pra repopular o buffer assim
+ * que o servidor sobe, em vez de começar zerado -- sem isso, todo
+ * redeploy fazia as Tendências (janelas de 100/50/16 casas) ficarem
+ * incorretas por um tempo, até acumularem dado novo o suficiente de
+ * novo.
+ *
+ * Retorna no mesmo formato que o double-worker/tipminer-bridge
+ * entrega: { number, color, timestamp, raw }.
+ */
+async function getRecentResults(limit = 100) {
+  if (!ENABLED) return [];
+  try {
+    const res = await pool.query(
+      `SELECT number, color, occurred_at, raw
+       FROM double_results
+       ORDER BY occurred_at DESC
+       LIMIT $1`,
+      [limit]
+    );
+    // A query vem do mais recente pro mais antigo (DESC) -- inverte
+    // aqui pra ficar do mais antigo pro mais recente, que é a ordem
+    // que o buffer em memória e o pattern-engine esperam.
+    return res.rows.reverse().map((row) => ({
+      number: row.number,
+      color: row.color,
+      timestamp: row.occurred_at,
+      raw: row.raw,
+    }));
+  } catch (err) {
+    console.error(`[persistence] falha ao buscar resultados recentes: ${err.message}`);
+    return [];
+  }
+}
+
+/**
  * Abre um sinal novo (estratégia disparou agora). Retorna o id da
  * linha criada, ou null se falhar/desligado — quem chamar guarda esse
  * id em memória pra poder resolver o sinal depois.
@@ -475,6 +512,7 @@ async function close() {
 module.exports = {
   initDb,
   saveResult,
+  getRecentResults,
   openSignal,
   markSignalGale,
   resolveSignal,
