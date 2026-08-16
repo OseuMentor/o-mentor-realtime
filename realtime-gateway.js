@@ -91,6 +91,28 @@ class RealtimeGateway {
 
   async start() {
     await persistence.initDb();
+
+    // Repopula o buffer em memória com os últimos resultados já
+    // gravados no banco, em vez de começar zerado a cada redeploy.
+    // Sem isso, toda vez que o servico reiniciava (mesmo por causa de
+    // uma mudanca sem relacao nenhuma com isso, tipo o webhook da
+    // LastLink), as Tendencias (janelas de 100/50/16 casas) ficavam
+    // incorretas ate acumular dado novo suficiente de novo -- podia
+    // levar quase 1 hora pra "Tendencia" (100 casas) se recompor
+    // sozinha. Fire-and-forget nao serve aqui: precisamos do buffer
+    // pronto ANTES do servidor comecar a aceitar conexoes/resultados.
+    try {
+      const recent = await persistence.getRecentResults(BUFFER_SIZE);
+      if (recent.length > 0) {
+        this.buffer = recent;
+        console.log(`[gateway] buffer repopulado com ${recent.length} resultado(s) do banco.`);
+      }
+    } catch (err) {
+      console.error(`[gateway] falha ao repopular buffer do banco: ${err.message}`);
+      // Nao trava a inicializacao -- pior caso, o buffer comeca vazio
+      // como sempre comecou antes dessa melhoria.
+    }
+
     statsBatchJob.start();
     this.httpServer.listen(this.port, () => {
       console.log(`[gateway] HTTP + WebSocket ouvindo na porta ${this.port}`);
