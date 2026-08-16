@@ -95,7 +95,6 @@ nav.main-nav a:hover:not(.active) { color: var(--white); }
 .conn-alert-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--red); flex-shrink: 0; animation: pulse 1s ease-in-out infinite; }
 
 .best-strategy {
-  display: flex; align-items: center; justify-content: space-between; gap: 20px;
   background: linear-gradient(155deg, rgba(192,132,252,.10), var(--card));
   border: 1px solid rgba(192,132,252,.35);
   border-radius: 16px; padding: 20px 22px;
@@ -108,28 +107,36 @@ nav.main-nav a:hover:not(.active) { color: var(--white); }
   border-color: rgba(167,139,250,.14);
   box-shadow: none;
 }
-.best-strategy.low-confidence .bs-icon { background: rgba(167,139,250,.08); border-color: rgba(167,139,250,.2); }
-.bs-confidence-tag {
-  font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px;
-  margin-top: 4px; display: inline-block;
-}
-.best-strategy .bs-left { display: flex; align-items: center; gap: 16px; }
-.bs-icon {
-  width: 50px; height: 50px; border-radius: 50%; flex-shrink: 0;
-  background: rgba(192,132,252,.14); border: 1px solid rgba(192,132,252,.4);
+.ft-eyebrow { font-size: 10.5px; letter-spacing: 2.5px; text-transform: uppercase; color: var(--neon); margin-bottom: 12px; }
+.ft-ticker { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ft-tile { flex-shrink: 0; width: 42px; text-align: center; }
+.ft-tile-box {
+  width: 42px; height: 42px; border-radius: 9px;
   display: flex; align-items: center; justify-content: center;
+  font-family: 'JetBrains Mono', monospace; font-size: 16px;
+  border: 1px solid rgba(255,255,255,.06);
 }
-.bs-icon svg { width: 22px; height: 22px; }
-.bs-eyebrow { font-size: 10.5px; letter-spacing: 2.5px; text-transform: uppercase; color: var(--neon); margin-bottom: 4px; }
-.bs-name { font-family: 'Space Grotesk', sans-serif; font-size: 24px; letter-spacing: .5px; color: var(--white); }
-.bs-meta { font-size: 12px; color: var(--muted); margin-top: 3px; }
-.bs-right { display: flex; align-items: center; gap: 14px; }
-.bs-suggestion { text-align: right; }
-.bs-suggestion .bs-sug-label { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
-.bs-color-dot { width: 26px; height: 26px; border-radius: 50%; margin-top: 5px; margin-left: auto; border: 2px solid rgba(255,255,255,.15); }
-.bs-color-dot.red { background: var(--red); }
-.bs-color-dot.black { background: var(--black-tile); border-color: rgba(167,139,250,.35); }
-.bs-color-dot.white { background: var(--white); }
+.ft-tile-box.red { background: var(--red); color: #3a0410; }
+.ft-tile-box.black { background: var(--black-tile); color: var(--white); border-color: rgba(167,139,250,.25); }
+.ft-tile-box.white { background: var(--white); color: var(--purple); }
+.ft-tile-time { font-size: 9.5px; color: var(--muted); margin-top: 4px; letter-spacing: .3px; }
+.ft-tile-empty { font-size: 12px; color: var(--muted); padding: 10px 0; }
+.ft-strategy-info { margin-top: 18px; padding-top: 16px; border-top: 1px solid rgba(167,139,250,.14); }
+.ft-strategy-name { font-family: 'Space Grotesk', sans-serif; font-size: 22px; letter-spacing: .5px; color: var(--white); margin-bottom: 10px; }
+.ft-strategy-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ft-badge {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 500; padding: 6px 12px; border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.08);
+}
+.ft-badge .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.ft-badge.entry.red { color: var(--red); background: rgba(239,67,96,.1); border-color: rgba(239,67,96,.3); }
+.ft-badge.entry.red .dot { background: var(--red); }
+.ft-badge.entry.black { color: var(--white); background: rgba(255,255,255,.05); border-color: rgba(167,139,250,.25); }
+.ft-badge.entry.black .dot { background: var(--black-tile); border: 1px solid var(--muted); }
+.ft-badge.confluence { color: var(--violet); background: rgba(167,139,250,.08); border-color: rgba(167,139,250,.3); }
+.ft-badge.accuracy { color: var(--green); background: rgba(74,222,128,.08); border-color: rgba(74,222,128,.3); }
+.ft-badge.accuracy.pending { color: var(--muted); background: transparent; }
 
 .signal-panel {
   background: var(--card);
@@ -165,42 +172,6 @@ nav.main-nav a:hover:not(.active) { color: var(--white); }
 }
 @keyframes brancoPulse { from { transform: scale(1); } to { transform: scale(1.06); } }
 
-.bs-diagram { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
-.bsd-trigger {
-  width: 34px; height: 34px; border-radius: 8px;
-  background: rgba(192,132,252,.14); border: 1px solid rgba(192,132,252,.4);
-  display: flex; align-items: center; justify-content: center;
-  font-family: 'JetBrains Mono', monospace; font-size: 16px; color: var(--neon);
-  flex-shrink: 0;
-}
-.bsd-dot {
-  width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0;
-  background: rgba(167,139,250,.18); border: 1px solid rgba(167,139,250,.35);
-}
-.bsd-dot.filled { background: var(--violet); border-color: var(--violet); box-shadow: 0 0 8px rgba(167,139,250,.5); }
-.bsd-tile {
-  width: 30px; height: 30px; border-radius: 7px; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-  font-family: 'JetBrains Mono', monospace; font-size: 13px;
-  border: 1px solid rgba(255,255,255,.08);
-}
-.bsd-tile.red { background: var(--red); color: #3a0410; }
-.bsd-tile.black { background: var(--black-tile); color: var(--white); border-color: rgba(167,139,250,.25); }
-.bsd-tile.white { background: var(--white); color: var(--purple); }
-.bsd-arrow { color: var(--muted); font-size: 16px; flex-shrink: 0; }
-.bsd-entry {
-  width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
-  border: 2px solid rgba(255,255,255,.25);
-  box-shadow: 0 0 14px rgba(192,132,252,.35);
-}
-.bsd-entry.red { background: var(--red); }
-.bsd-entry.black { background: var(--black-tile); border-color: rgba(167,139,250,.4); }
-.bsd-entry.white { background: var(--white); }
-.bsd-empty { font-size: 13px; color: var(--muted); }
-.bs-confidence { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
-.bs-confidence .pct { font-family: 'JetBrains Mono', monospace; font-size: 28px; color: var(--green); }
-.bs-confidence .bar { width: 70px; height: 4px; border-radius: 4px; background: rgba(255,255,255,.08); overflow: hidden; }
-.bs-confidence .bar-fill { height: 100%; background: var(--green); width: 78%; }
 .brand { display: flex; align-items: center; gap: 14px; }
 .logo {
   width: 46px; height: 46px; border-radius: 50%;
@@ -492,18 +463,17 @@ footer.disclaimer {
     </div>
   </header>
 
-  <div class="best-strategy">
-    <div class="bs-left">
-      <div class="bs-icon">
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M13 3L4 14h6l-1 7 9-11h-6l1-7z" stroke="#c084fc" stroke-width="1.6" stroke-linejoin="round"/></svg>
-      </div>
-      <div>
-        <div class="bs-eyebrow">Estratégia em destaque agora</div>
-        <div class="bs-name" id="bsName">Aguardando padrão</div>
-        <div class="bs-meta" id="bsMeta">Nenhuma estratégia disparada no momento</div>
+  <div class="best-strategy" id="featuredPanel">
+    <div class="ft-eyebrow">Últimas casas</div>
+    <div class="ft-ticker" id="ftTicker"></div>
+    <div class="ft-strategy-info" id="ftStrategyInfo" style="display:none;">
+      <div class="ft-strategy-name" id="ftStrategyName">--</div>
+      <div class="ft-strategy-row">
+        <span class="ft-badge entry" id="ftEntryBadge"><span class="dot"></span><span id="ftEntryLabel">Entrar em --</span></span>
+        <span class="ft-badge confluence" id="ftConfluenceBadge">-- confluência(s)</span>
+        <span class="ft-badge accuracy" id="ftAccuracyBadge">-- de acerto</span>
       </div>
     </div>
-    <div class="bs-diagram" id="bsDiagram"></div>
   </div>
 
   <div class="signal-panel" id="signalPanel">
@@ -692,12 +662,14 @@ function connect() {
     const msg = JSON.parse(evt.data);
     if (msg.type === 'snapshot') {
       results = (msg.history || []).slice(-MAX_HISTORY);
+      renderTicker();
       renderTrendsFromServer(msg.trends);
-      renderBestStrategy(msg.strategies, msg.confluence);
+      renderFeaturedPanel(msg.strategies, msg.confluence);
     } else if (msg.type === 'new_result') {
       updateResultsBuffer(msg.result);
+      renderTicker();
       renderTrendsFromServer(msg.trends);
-      renderBestStrategy(msg.strategies, msg.confluence);
+      renderFeaturedPanel(msg.strategies, msg.confluence);
       // Primeiro avalia se este resultado resolve um sinal já em aberto
       // (é a "próxima casa" depois da entrada ou do gale), só depois
       // considera abrir um sinal novo com base na confluência atual.
@@ -771,22 +743,7 @@ function renderTrendsFromServer(trends){
   });
 }
 
-// ---------- Estratégia em destaque: seleção por assertividade real + desenho ----------
-// Estratégias de contagem numérica: desenho especial com gatilho + bolinhas.
-const COUNTING_CONFIG = {
-  number3: { trigger: '3', length: 3 },
-  number5: { trigger: '5', length: 5 },
-  '2five': { trigger: '5-5', length: 5 }
-};
-
-// Demais estratégias: desenho com as últimas N casas reais do histórico.
-const HOUSES_WINDOW = {
-  xadrezFormal: 4, xadrezInformal: 6, nextXadrez: 4,
-  blackRedWhite: 3, nextBlack: 4, nextRed: 4, nextDoubleWhite: 5,
-  blackDouble: 2, repeticaoEspelhamento: 4, padraoDePares: 3,
-  fechamentoPadrao: 5
-};
-
+// ---------- Estratégia em destaque: seleção por assertividade real ----------
 // Ordem de prioridade só usada como último critério de desempate, quando
 // duas ou mais estratégias empatam em peso real (ex: ambas sem amostra
 // ainda, winRate null nos dois casos).
@@ -853,80 +810,65 @@ function pickFeaturedStrategy(strategies, confluence) {
   return pool[0];
 }
 
-function renderDiagram(strategy) {
-  const el = document.getElementById('bsDiagram');
-  el.innerHTML = '';
-  if (!strategy) {
-    el.innerHTML = '<span class="bsd-empty">--</span>';
+// ---------- Fita das últimas 7 casas (sempre visível no painel do topo) ----------
+function renderTicker(){
+  const el = document.getElementById('ftTicker');
+  if (!el) return;
+  if (!results || results.length === 0) {
+    el.innerHTML = '<span class="ft-tile-empty">Aguardando resultados…</span>';
     return;
   }
-  const entryClass = strategy.entryColor === 'black' ? 'black' : strategy.entryColor === 'white' ? 'white' : 'red';
-  const counting = COUNTING_CONFIG[strategy.id];
-
-  if (counting) {
-    const trigger = document.createElement('div');
-    trigger.className = 'bsd-trigger';
-    trigger.textContent = counting.trigger;
-    el.appendChild(trigger);
-    for (let i = 0; i < counting.length; i++) {
-      const dot = document.createElement('div');
-      dot.className = 'bsd-dot filled';
-      el.appendChild(dot);
-    }
-  } else {
-    const windowSize = HOUSES_WINDOW[strategy.id] || 4;
-    const recent = results.slice(-windowSize);
-    recent.forEach(item => {
-      const tile = document.createElement('div');
-      tile.className = 'bsd-tile ' + item.color;
-      tile.textContent = item.color === 'white' ? '★' : item.number;
-      el.appendChild(tile);
-    });
-  }
-
-  const arrow = document.createElement('div');
-  arrow.className = 'bsd-arrow';
-  arrow.textContent = '→';
-  el.appendChild(arrow);
-
-  const entry = document.createElement('div');
-  entry.className = 'bsd-entry ' + entryClass;
-  el.appendChild(entry);
+  const recent = results.slice(-7);
+  el.innerHTML = recent.map(item => {
+    const label = item.color === 'white' ? '★' : item.number;
+    return `<div class="ft-tile"><div class="ft-tile-box ${item.color}">${label}</div><div class="ft-tile-time">${fmtTime(item.timestamp)}</div></div>`;
+  }).join('');
 }
 
-function renderBestStrategy(strategies, confluence){
+// ---------- Bloco condicional: nome + confluência + cor + % de acerto ----------
+// Só aparece quando alguma estratégia dispara. A fita de 7 casas (acima)
+// continua visível o tempo todo, disparando ou não.
+function renderFeaturedPanel(strategies, confluence){
   if (!strategies) return;
   const featured = pickFeaturedStrategy(strategies, confluence);
-  const panel = document.querySelector('.best-strategy');
-  const nameEl = document.getElementById('bsName');
-  const metaEl = document.getElementById('bsMeta');
+  const panel = document.getElementById('featuredPanel');
+  const infoBlock = document.getElementById('ftStrategyInfo');
+
   if (!featured) {
     panel.classList.remove('low-confidence');
-    nameEl.textContent = 'Aguardando padrão';
-    metaEl.textContent = 'Nenhuma estratégia disparada no momento';
-    renderDiagram(null);
+    infoBlock.style.display = 'none';
     return;
   }
+
   const stat = strategyStats[featured.id];
   const emConfluencia = confluence && confluence.strategies && confluence.strategies.includes(featured.id);
   const lowConfidence = isLowConfidence(stat);
-
   panel.classList.toggle('low-confidence', lowConfidence);
-  nameEl.textContent = featured.name;
 
-  let metaText = emConfluencia
-    ? `${confluence.count} sinal(is) em confluência`
-    : 'Estratégia disparada';
+  document.getElementById('ftStrategyName').textContent = featured.name;
+
+  const entryColorClass = featured.entryColor === 'black' ? 'black' : 'red';
+  const entryLabelText = featured.entryColor === 'black' ? 'Entrar em Preto' : 'Entrar em Vermelho';
+  const entryBadge = document.getElementById('ftEntryBadge');
+  entryBadge.className = 'ft-badge entry ' + entryColorClass;
+  document.getElementById('ftEntryLabel').textContent = entryLabelText;
+
+  const confluenceCount = emConfluencia ? confluence.count : 1;
+  document.getElementById('ftConfluenceBadge').textContent = `${confluenceCount} confluência(s)`;
+
+  const accBadge = document.getElementById('ftAccuracyBadge');
   if (stat && stat.winRate !== null) {
-    metaText += ` · ${stat.winRate.toFixed(1)}% de acerto real`;
+    accBadge.textContent = `${stat.winRate.toFixed(1)}% de acerto`;
+    accBadge.classList.remove('pending');
   } else {
-    metaText += ' · ainda sem amostra suficiente';
+    accBadge.textContent = 'ainda sem amostra suficiente';
+    accBadge.classList.add('pending');
   }
-  metaEl.textContent = metaText;
-  renderDiagram(featured);
+
+  infoBlock.style.display = 'block';
 }
 
-const MAX_HISTORY = 22; // mantido em memória para alimentar o diagrama da estratégia em destaque
+const MAX_HISTORY = 22; // mantido em memória para alimentar a fita de 7 casas
 
 function fmtTime(iso){
   if (!iso) return '--:--';
