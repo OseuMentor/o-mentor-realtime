@@ -669,12 +669,15 @@ function connect() {
       updateResultsBuffer(msg.result);
       renderTicker();
       renderTrendsFromServer(msg.trends);
-      renderFeaturedPanel(msg.strategies, msg.confluence);
-      // Primeiro avalia se este resultado resolve um sinal já em aberto
-      // (é a "próxima casa" depois da entrada ou do gale), só depois
-      // considera abrir um sinal novo com base na confluência atual.
+      // Resolve primeiro o sinal já em aberto (é a "próxima casa" depois
+      // da entrada ou do gale) e só depois considera abrir um sinal novo
+      // com base na confluência atual -- isso precisa acontecer ANTES de
+      // renderizar o painel de destaque, pra ele já refletir corretamente
+      // se acabou de resolver (esconde nome/badges) ou se abriu agora
+      // (mostra nome/badges), no mesmo ciclo, sem esperar a próxima casa.
       evaluateResult(msg.result);
       maybeStartSignal(msg.confluence, msg.result.timestamp);
+      renderFeaturedPanel(msg.strategies, msg.confluence);
     } else if (msg.type === 'status') {
       setConnectionAlert(msg.status.connected);
     }
@@ -826,13 +829,19 @@ function renderTicker(){
 }
 
 // ---------- Bloco condicional: nome + confluência + cor + % de acerto ----------
-// Só aparece quando alguma estratégia dispara. A fita de 7 casas (acima)
-// continua visível o tempo todo, disparando ou não.
+// Só aparece enquanto existe um sinal ativo em fase de entrada/gale --
+// mesmo ciclo de vida do painel de Sinal logo abaixo. Assim que o
+// resultado resolve (Win, G1, Branco ou Loss), o nome/badges somem
+// junto, mesmo que o pattern-engine ainda relate a estratégia como
+// "disparou" por mais um instante. A fita de 7 casas continua visível
+// o tempo todo, independente disso.
 function renderFeaturedPanel(strategies, confluence){
   if (!strategies) return;
-  const featured = pickFeaturedStrategy(strategies, confluence);
   const panel = document.getElementById('featuredPanel');
   const infoBlock = document.getElementById('ftStrategyInfo');
+
+  const signalIsLive = activeSignal && (activeSignal.phase === 'entrada' || activeSignal.phase === 'gale');
+  const featured = signalIsLive ? pickFeaturedStrategy(strategies, confluence) : null;
 
   if (!featured) {
     panel.classList.remove('low-confidence');
