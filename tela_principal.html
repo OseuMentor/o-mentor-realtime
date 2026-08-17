@@ -479,7 +479,7 @@ footer.disclaimer {
   <div class="signal-panel" id="signalPanel">
     <div class="signal-eyebrow">Sinal</div>
     <div class="signal-body" id="signalBody">
-      <div class="signal-waiting">Aguardando a próxima entrada…</div>
+      <div class="signal-waiting">O Mentor analisando a próxima entrada…</div>
     </div>
   </div>
 
@@ -534,14 +534,14 @@ function renderSignal() {
   const panel = document.getElementById('signalPanel');
   if (!activeSignal) {
     panel.classList.remove('is-live');
-    body.innerHTML = `<div class="signal-waiting">Aguardando a próxima entrada…</div>`;
+    body.innerHTML = `<div class="signal-waiting">O Mentor analisando a próxima entrada…</div>`;
     return;
   }
 
   if (activeSignal.phase === 'cooldown') {
     panel.classList.remove('is-live');
     body.innerHTML = `
-      <div class="signal-waiting">🔍 Reavaliando o padrão…</div>
+      <div class="signal-waiting">🔍 Reavaliando a entrada…</div>
       <div class="signal-cooldown-sub">Aguardando mais ${activeSignal.remaining} resultado(s)</div>
     `;
     return;
@@ -553,7 +553,7 @@ function renderSignal() {
   const horaLabel = activeSignal.entryTime ? `<div class="signal-time">Entrada às ${activeSignal.entryTime}</div>` : '';
 
   if (activeSignal.phase === 'entrada' || activeSignal.phase === 'gale') {
-    const actionLabel = activeSignal.phase === 'gale' ? 'FAZER MARTINGALE' : 'PADRÃO CONFIRMADO';
+    const actionLabel = activeSignal.phase === 'gale' ? 'FAZER MARTINGALE' : 'ENTRADA CONFIRMADA';
     body.innerHTML = `
       <div class="signal-action ${activeSignal.phase === 'gale' ? 'gale' : ''}">${actionLabel}</div>
       <div class="signal-color-row">
