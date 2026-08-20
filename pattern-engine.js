@@ -111,11 +111,18 @@ function numberThree(history) {
     const restantes = 3 - casasContadas;
     return { id, name, category, status: 'formando', entryColor, detail: `Gatilho detectado. Faltam ${restantes} casa(s) antes de aguardar o Preto.`, casasRestantes: restantes };
   }
-  // Contagem de 3 casas completa -- agora só falta o Preto cair de
-  // verdade. Checa se a última casa que saiu é Preta.
+  if (casasContadas === 3) {
+    // A 3ª casa fecha a contagem, mas NÃO conta pra checar o Preto --
+    // mesmo que essa casa seja Preta por coincidência, não dispara
+    // ainda. Só a partir da 4ª casa em diante é que o Preto passa a
+    // valer de verdade.
+    return { id, name, category, status: 'formando', entryColor, detail: 'Contagem de 3 casas completa. A partir da próxima casa, aguardando o Preto cair.', casasRestantes: null };
+  }
+  // casasContadas > 3 (ou seja, já estamos na 4ª casa em diante depois
+  // do gatilho) -- agora sim a cor da última casa conta de verdade.
   const ultimaCasa = last(history, 1)[0];
   if (ultimaCasa.color === 'black') {
-    return { id, name, category, status: 'disparou', entryColor, detail: 'Preto caiu após a contagem de 3 casas. Entrada em Preto.', casasRestantes: 0 };
+    return { id, name, category, status: 'disparou', entryColor, detail: 'Preto caiu na 4ª casa (ou depois) após a contagem. Entrada em Preto.', casasRestantes: 0 };
   }
   return { id, name, category, status: 'formando', entryColor, detail: 'Contagem completa, aguardando o Preto cair.', casasRestantes: null };
 }
