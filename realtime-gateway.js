@@ -351,13 +351,15 @@ class RealtimeGateway {
 
   _onClientConnect(client) {
     const analysis = analyzeAll(this.buffer);
+    const trends = this._calcTrends();
+    const confluence = this._applyTrendConfluenceBoost(analysis.confluence, trends);
     this._send(client, {
       type: 'snapshot',
       status: this.lastStatus,
       history: this.buffer,
-      trends: this._calcTrends(),
+      trends,
       strategies: analysis.strategies,
-      confluence: analysis.confluence,
+      confluence,
     });
   }
 
@@ -382,12 +384,15 @@ class RealtimeGateway {
       console.error(`[gateway] falha no strategyTracker: ${err.message}`);
     }
 
+    const trends = this._calcTrends();
+    const confluence = this._applyTrendConfluenceBoost(analysis.confluence, trends);
+
     const payload = {
       type: 'new_result',
       result,
-      trends: this._calcTrends(),
+      trends,
       strategies: analysis.strategies,
-      confluence: analysis.confluence,
+      confluence,
     };
     this._broadcast(payload);
 
@@ -415,6 +420,41 @@ class RealtimeGateway {
     const redCount = slice.filter((r) => r.color === 'red').length;
     const redPct = Math.round((redCount / total) * 100);
     return { redPct, blackPct: 100 - redPct, sampleSize: total };
+  }
+
+  // Traz as Tendências (Tendência/Mini/Micro) pra dentro da conta de
+  // confluência, seguindo o documento original do projeto ("Força dos
+  // giros anteriores"): cada Tendência cuja cor predominante bater com
+  // a cor que as ESTRATÉGIAS já decidiram soma +1 ponto de
+  // confluência. Tendências NUNCA decidem a cor sozinhas nem trocam a
+  // cor escolhida pelas estratégias -- só reforçam. Por isso essa
+  // função só roda depois que calcConfluence() (dentro do
+  // pattern-engine) já escolheu uma cor com base em pelo menos 1
+  // estratégia disparada; se não tiver cor nenhuma, não há o que
+  // reforçar.
+  _applyTrendConfluenceBoost(confluence, trends) {
+    if (!confluence || !confluence.color) return confluence;
+
+    const color = confluence.color;
+    let trendBoost = 0;
+    const trendSources = [];
+
+    for (const [key, t] of Object.entries(trends)) {
+      const predominant = t.redPct > t.blackPct ? 'red' : t.redPct < t.blackPct ? 'black' : null;
+      if (predominant === color) {
+        trendBoost++;
+        trendSources.push(key);
+      }
+    }
+
+    if (trendBoost === 0) return confluence;
+
+    return {
+      ...confluence,
+      count: confluence.count + trendBoost,
+      trendBoost,
+      trendSources,
+    };
   }
 
   // ---------- Broadcast ----------
