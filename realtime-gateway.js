@@ -25,6 +25,7 @@ const lastlinkWebhook = require('./lastlinkWebhook');
 const WINDOWS = { tendencia: 100, mini: 50, micro: 16 };
 const BUFFER_SIZE = 100;
 const PORT = process.env.PORT || 8081;
+const TRENDBOOST_THRESHOLD_PCT = 60; // limiar mínimo pra Tendência contar como confluência
 const INGEST_SECRET = process.env.INGEST_SECRET || '';
 
 // ---------------------------------------------------------------
@@ -432,15 +433,22 @@ class RealtimeGateway {
   // pattern-engine) já escolheu uma cor com base em pelo menos 1
   // estratégia disparada; se não tiver cor nenhuma, não há o que
   // reforçar.
+  //
+  // TRENDBOOST_THRESHOLD_PCT: só conta a Tendência como confluência
+  // quando ela for FORTE (>= 60%) -- uma maioria pequena (ex: 51%
+  // vermelho) não é sinal confiável o suficiente pra somar ponto,
+  // decisão tomada explicitamente pra não inflar a confluência com
+  // tendências fracas/quase empatadas.
   _applyTrendConfluenceBoost(confluence, trends) {
     if (!confluence || !confluence.color) return confluence;
 
     const color = confluence.color;
+    const THRESHOLD = TRENDBOOST_THRESHOLD_PCT;
     let trendBoost = 0;
     const trendSources = [];
 
     for (const [key, t] of Object.entries(trends)) {
-      const predominant = t.redPct > t.blackPct ? 'red' : t.redPct < t.blackPct ? 'black' : null;
+      const predominant = t.redPct >= THRESHOLD ? 'red' : t.blackPct >= THRESHOLD ? 'black' : null;
       if (predominant === color) {
         trendBoost++;
         trendSources.push(key);
