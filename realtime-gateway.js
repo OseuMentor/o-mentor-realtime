@@ -26,6 +26,7 @@ const WINDOWS = { tendencia: 100, mini: 50, micro: 16 };
 const BUFFER_SIZE = 100;
 const PORT = process.env.PORT || 8081;
 const TRENDBOOST_THRESHOLD_PCT = 60; // limiar mínimo pra Tendência contar como confluência
+const FORCA_NUMEROS_THRESHOLD = 0.6; // limiar mínimo (60%) pra Força dos Números contar
 const INGEST_SECRET = process.env.INGEST_SECRET || '';
 
 // ---------------------------------------------------------------
@@ -350,10 +351,13 @@ class RealtimeGateway {
 
   // ---------- Ciclo de vida de cliente ----------
 
-  _onClientConnect(client) {
+  async _onClientConnect(client) {
     const analysis = analyzeAll(this.buffer);
     const trends = this._calcTrends();
-    const confluence = this._applyTrendConfluenceBoost(analysis.confluence, trends);
+    const latestResult = this.buffer.length > 0 ? this.buffer[this.buffer.length - 1] : null;
+    const confluence = latestResult
+      ? await this._buildFinalConfluence(analysis.confluence, trends, latestResult)
+      : analysis.confluence;
     this._send(client, {
       type: 'snapshot',
       status: this.lastStatus,
@@ -386,7 +390,7 @@ class RealtimeGateway {
     }
 
     const trends = this._calcTrends();
-    const confluence = this._applyTrendConfluenceBoost(analysis.confluence, trends);
+    const confluence = await this._buildFinalConfluence(analysis.confluence, trends, result);
 
     const payload = {
       type: 'new_result',
@@ -465,6 +469,125 @@ class RealtimeGateway {
     };
   }
 
+  // "Repetição do Gráfico" -- verifica se a sequência de cores das
+  // últimas 5 (ou, na falta, 4) casas já aconteceu antes no histórico;
+  // se achar, olha a cor que veio logo depois daquela ocorrência
+  // antiga. Só REFORÇA uma cor que as estratégias já escolheram --
+  // nunca decide sozinha, mesma regra das Tendências (por isso só é
+  // chamada quando confluence.color já existe).
+  //
+  // Se a casa seguinte à ocorrência antiga foi Branco, esse achado não
+  // ajuda em nada (não indica cor) -- a busca continua mais pra trás
+  // procurando outra ocorrência que tenha vindo seguida de cor de
+  // verdade.
+  async _checkRepeticaoDoGrafico() {
+    try {
+      const seq = await persistence.getRecentColorSequence(5000);
+      for (const windowSize of [5, 4]) {
+        if (seq.length < windowSize + 1) continue;
+        const atual = seq.slice(-windowSize);
+        for (let end = seq.length - windowSize - 1; end >= windowSize; end--) {
+          const candidata = seq.slice(end - windowSize, end);
+          const bate = candidata.every((c, i) => c === atual[i]);
+          if (!bate) continue;
+          const corSeguinte = seq[end];
+          if (corSeguinte === 'red' || corSeguinte === 'black') {
+            return { color: corSeguinte, windowSize };
+          }
+          // corSeguinte foi Branco -- não serve, continua procurando
+          // uma ocorrência mais antiga do mesmo padrão.
+        }
+      }
+      return null;
+    } catch (err) {
+      console.error(`[gateway] falha ao checar Repetição do Gráfico: ${err.message}`);
+      return null;
+    }
+  }
+
+  // "Força dos Números" -- olha o número da ÚLTIMA casa que caiu,
+  // busca as últimas 10 vezes que esse número já tinha caído antes, e
+  // vê a cor que veio depois de cada uma dessas ocorrências (Branco é
+  // descartado da amostra, nunca substituído). Se uma cor tiver pelo
+  // menos 60% da amostra válida, essa é a força do número.
+  //
+  // DIFERENTE das Tendências e da Repetição do Gráfico: essa análise
+  // tem autoridade própria e PODE decidir uma cor sozinha, mesmo sem
+  // nenhuma estratégia disparada -- é combinada separadamente em
+  // _buildFinalConfluence(), não aqui.
+  async _checkForcaDosNumeros(number) {
+    try {
+      const proximasCores = await persistence.getNextColorsAfterNumber(number, 10);
+      const validas = proximasCores.filter((c) => c === 'red' || c === 'black');
+      if (validas.length === 0) return null;
+
+      const vermelhas = validas.filter((c) => c === 'red').length;
+      const pretas = validas.length - vermelhas;
+      const pctVermelho = vermelhas / validas.length;
+      const pctPreto = pretas / validas.length;
+
+      if (pctVermelho >= FORCA_NUMEROS_THRESHOLD) return { color: 'red', amostra: validas.length };
+      if (pctPreto >= FORCA_NUMEROS_THRESHOLD) return { color: 'black', amostra: validas.length };
+      return null;
+    } catch (err) {
+      console.error(`[gateway] falha ao checar Força dos Números (${number}): ${err.message}`);
+      return null;
+    }
+  }
+
+  // Combina TODOS os fatores de confluência na ordem certa:
+  //   1. Estratégias de padrão (base, pattern-engine.calcConfluence)
+  //   2. Tendências        -- só reforça uma cor que já existe (passo 1)
+  //   3. Repetição do Gráfico -- só reforça uma cor que já existe (passo 1)
+  //   4. Força dos Números -- pode reforçar OU decidir sozinha, se os
+  //      passos 1-3 não tiverem chegado a nenhuma cor ainda
+  async _buildFinalConfluence(baseConfluence, trends, latestResult) {
+    let confluence = baseConfluence;
+
+    if (confluence && confluence.color) {
+      confluence = this._applyTrendConfluenceBoost(confluence, trends);
+
+      const repeticao = await this._checkRepeticaoDoGrafico();
+      if (repeticao && repeticao.color === confluence.color) {
+        confluence = {
+          ...confluence,
+          count: confluence.count + 1,
+          repeticaoBoost: true,
+          repeticaoWindowSize: repeticao.windowSize,
+        };
+      }
+    }
+
+    const forca = await this._checkForcaDosNumeros(latestResult.number);
+
+    if (confluence && confluence.color) {
+      // Já tinha cor vinda das estratégias -- Força dos Números só
+      // reforça se concordar com essa cor.
+      if (forca && forca.color === confluence.color) {
+        confluence = {
+          ...confluence,
+          count: confluence.count + 1,
+          forcaNumerosBoost: true,
+        };
+      }
+      return confluence;
+    }
+
+    // Nenhuma estratégia disparou -- Força dos Números é a ÚNICA fonte
+    // que pode decidir uma cor sozinha nesse caso (Tendências e
+    // Repetição do Gráfico não têm essa autoridade).
+    if (forca) {
+      return {
+        color: forca.color,
+        count: 1,
+        strategies: [],
+        forcaNumerosOnly: true,
+      };
+    }
+
+    return confluence; // permanece null/sem cor
+  }
+
   // ---------- Broadcast ----------
 
   _send(client, payload) {
@@ -501,7 +624,14 @@ if (require.main === module) {
       console.log(`[pattern-engine] ${disparadas.length} estrategia(s) disparada(s):`, disparadas.map((s) => `${s.name}->${corLabel(s.entryColor)}`).join(', '));
     }
     if (analysis.confluence.count > 0) {
-      console.log(`[pattern-engine] confluencia: ${analysis.confluence.count} estrategia(s) apontando pra ${corLabel(analysis.confluence.color)}`);
+      const c = analysis.confluence;
+      const fontes = [];
+      if (c.strategies && c.strategies.length > 0) fontes.push(`${c.strategies.length} estrategia(s)`);
+      if (c.trendBoost) fontes.push(`Tendencia(s): ${(c.trendSources || []).join(', ')}`);
+      if (c.repeticaoBoost) fontes.push(`Repeticao do Grafico (janela ${c.repeticaoWindowSize})`);
+      if (c.forcaNumerosBoost) fontes.push('Forca dos Numeros (reforco)');
+      if (c.forcaNumerosOnly) fontes.push('Forca dos Numeros (decidiu sozinha)');
+      console.log(`[pattern-engine] confluencia: ${c.count} ponto(s) apontando pra ${corLabel(c.color)} -- fontes: ${fontes.join(' | ')}`);
     }
     return analysis;
   };
