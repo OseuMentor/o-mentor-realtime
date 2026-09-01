@@ -209,6 +209,73 @@ async function getRecentResults(limit = 100) {
 }
 
 /**
+ * Força dos Números: busca a cor que caiu logo APÓS cada uma das
+ * últimas N vezes que "number" apareceu no histórico. Usa a função de
+ * janela LEAD() do Postgres pra achar, pra cada linha, a cor da
+ * PRÓXIMA linha (por ordem de id) -- isso é calculado sobre os
+ * últimos 20.000 resultados (não a tabela inteira), pra manter a
+ * consulta rápida e previsível mesmo com a tabela crescendo com o
+ * tempo.
+ *
+ * Retorna um array de cores (ex: ['red','black','white','black',...]),
+ * do mais recente pro mais antigo, com até `limit` itens. Quem chamar
+ * essa função é responsável por descartar 'white' da contagem (a
+ * regra de negócio de ignorar Branco fica no realtime-gateway.js, não
+ * aqui -- esse arquivo só busca o dado bruto).
+ */
+async function getNextColorsAfterNumber(number, limit = 10) {
+  if (!ENABLED) return [];
+  try {
+    const res = await pool.query(
+      `WITH recent AS (
+         SELECT id, number, color
+         FROM double_results
+         ORDER BY id DESC
+         LIMIT 20000
+       ),
+       ordered AS (
+         SELECT id, number, color,
+                LEAD(color) OVER (ORDER BY id) AS next_color
+         FROM recent
+       )
+       SELECT next_color
+       FROM ordered
+       WHERE number = $1 AND next_color IS NOT NULL
+       ORDER BY id DESC
+       LIMIT $2`,
+      [number, limit]
+    );
+    return res.rows.map((row) => row.next_color);
+  } catch (err) {
+    console.error(`[persistence] falha ao buscar cores seguintes ao número ${number}: ${err.message}`);
+    return [];
+  }
+}
+
+/**
+ * Repetição do Gráfico: busca uma sequência de cores (do mais antigo
+ * pro mais recente) dos últimos "limit" resultados, pra permitir
+ * procurar por padrões repetidos em memória (a busca de padrão em si
+ * roda no realtime-gateway.js, não aqui -- essa função só entrega os
+ * dados brutos).
+ */
+async function getRecentColorSequence(limit = 5000) {
+  if (!ENABLED) return [];
+  try {
+    const res = await pool.query(
+      `SELECT color FROM (
+         SELECT id, color FROM double_results ORDER BY id DESC LIMIT $1
+       ) sub ORDER BY id ASC`,
+      [limit]
+    );
+    return res.rows.map((row) => row.color);
+  } catch (err) {
+    console.error(`[persistence] falha ao buscar sequência de cores recente: ${err.message}`);
+    return [];
+  }
+}
+
+/**
  * Abre um sinal novo (estratégia disparou agora). Retorna o id da
  * linha criada, ou null se falhar/desligado — quem chamar guarda esse
  * id em memória pra poder resolver o sinal depois.
@@ -513,6 +580,8 @@ module.exports = {
   initDb,
   saveResult,
   getRecentResults,
+  getNextColorsAfterNumber,
+  getRecentColorSequence,
   openSignal,
   markSignalGale,
   resolveSignal,
