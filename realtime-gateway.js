@@ -544,10 +544,19 @@ class RealtimeGateway {
   async _buildFinalConfluence(baseConfluence, trends, latestResult) {
     let confluence = baseConfluence;
 
+    // DIAGNOSTICO TEMPORARIO -- mostra os valores brutos das 3 analises
+    // a cada resultado, mesmo quando nao contribuem, pra confirmar que
+    // estao rodando de verdade (remover depois de confirmado).
+    const trendResumo = Object.entries(trends)
+      .map(([k, t]) => `${k}=V${t.redPct}%/P${t.blackPct}%`)
+      .join(' ');
+    console.log(`[DIAGNOSTICO] Tendencias agora: ${trendResumo} | cor base da confluencia: ${confluence ? confluence.color : 'nenhuma'}`);
+
     if (confluence && confluence.color) {
       confluence = this._applyTrendConfluenceBoost(confluence, trends);
 
       const repeticao = await this._checkRepeticaoDoGrafico();
+      console.log(`[DIAGNOSTICO] Repeticao do Grafico retornou: ${repeticao ? JSON.stringify(repeticao) : 'null (sem padrao encontrado)'}`);
       if (repeticao && repeticao.color === confluence.color) {
         confluence = {
           ...confluence,
@@ -559,6 +568,7 @@ class RealtimeGateway {
     }
 
     const forca = await this._checkForcaDosNumeros(latestResult.number);
+    console.log(`[DIAGNOSTICO] Forca dos Numeros (numero ${latestResult.number}) retornou: ${forca ? JSON.stringify(forca) : 'null (amostra insuficiente ou sem maioria de 60%)'}`);
 
     if (confluence && confluence.color) {
       // Já tinha cor vinda das estratégias -- Força dos Números só
