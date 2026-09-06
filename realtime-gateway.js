@@ -156,6 +156,17 @@ class RealtimeGateway {
       res.writeHead(200, { 'Content-Type': 'text/plain' });
       return res.end('ok');
     }
+    // Diagnostico/limpeza pontual de "estrategias fantasma" (strategy_id
+    // orfaos deixados por estrategias removidas/renomeadas, ex:
+    // blackRedWhite, xadrezInformal, nextXadrez antigos). Protegido pelo
+    // mesmo segredo do /internal/ingest -- nao e exposto por CORS nem
+    // pensado pra ficar no ar pra sempre, so ate confirmar a limpeza.
+    if (req.method === 'GET' && urlPath === '/internal/cleanup-strategies') {
+      return this._handleCleanupStrategiesPreview(req, res);
+    }
+    if (req.method === 'POST' && urlPath === '/internal/cleanup-strategies') {
+      return this._handleCleanupStrategiesExecute(req, res);
+    }
     res.writeHead(404);
     res.end();
   }
@@ -347,6 +358,54 @@ class RealtimeGateway {
         res.end('invalid json');
       }
     });
+  }
+
+  // Confere o mesmo segredo usado no /internal/ingest -- reaproveitado
+  // aqui pra nao precisar criar/gerenciar mais uma env var no Railway
+  // so pra esse diagnostico pontual.
+  _checkIngestSecret(req) {
+    const secret = req.headers['x-ingest-secret'];
+    return Boolean(INGEST_SECRET) && secret === INGEST_SECRET;
+  }
+
+  // GET: so-leitura. Mostra quais strategy_id existem em
+  // strategy_signals mas NAO fazem parte da lista atual de estrategias
+  // validas (STRATEGY_META) -- e quantos sinais cada um acumulou.
+  // Confira essa lista ANTES de chamar a versao POST (que apaga).
+  async _handleCleanupStrategiesPreview(req, res) {
+    if (!this._checkIngestSecret(req)) {
+      res.writeHead(401);
+      return res.end('unauthorized');
+    }
+    try {
+      const validIds = Object.keys(STRATEGY_META);
+      const orphans = await persistence.getOrphanStrategyStats(validIds);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ validIds, orphans }, null, 2));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+  }
+
+  // POST: DESTRUTIVO e irreversivel. Apaga de vez todo strategy_signals
+  // e strategy_stats cujo strategy_id nao esteja na lista atual de
+  // estrategias validas. So chamar depois de conferir o preview (GET)
+  // acima e confirmar que sao mesmo estrategias antigas/renomeadas.
+  async _handleCleanupStrategiesExecute(req, res) {
+    if (!this._checkIngestSecret(req)) {
+      res.writeHead(401);
+      return res.end('unauthorized');
+    }
+    try {
+      const validIds = Object.keys(STRATEGY_META);
+      const result = await persistence.deleteOrphanStrategyData(validIds);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(result, null, 2));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
+    }
   }
 
   // ---------- Ciclo de vida de cliente ----------
