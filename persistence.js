@@ -408,6 +408,64 @@ async function getAllStrategyStats() {
 }
 
 /**
+ * Limpeza de "estrategias fantasma" -- strategy_id que aparecem em
+ * strategy_signals mas nao existem mais na lista atual de estrategias
+ * validas (STRATEGY_META), porque a estrategia foi removida ou
+ * renomeada (ex: blackRedWhite removida; xadrezInformal e nextXadrez
+ * viraram xadrezInformalRed/Black e nextXadrezRed/Black). So leitura
+ * -- nao apaga nada. Retorna, pra cada strategy_id orfao encontrado,
+ * quantos sinais existem e o sample_size que ainda esta gravado em
+ * strategy_stats (se houver).
+ */
+async function getOrphanStrategyStats(validIds) {
+  if (!ENABLED) return [];
+  try {
+    const res = await pool.query(
+      `SELECT
+         s.strategy_id,
+         COUNT(*)::int AS signal_count,
+         (SELECT sample_size FROM strategy_stats st WHERE st.strategy_id = s.strategy_id) AS sample_size
+       FROM strategy_signals s
+       WHERE s.strategy_id != ALL($1::text[])
+       GROUP BY s.strategy_id
+       ORDER BY signal_count DESC`,
+      [validIds]
+    );
+    return res.rows;
+  } catch (err) {
+    console.error(`[persistence] falha ao listar strategy_ids orfaos: ${err.message}`);
+    return [];
+  }
+}
+
+/**
+ * Apaga PERMANENTEMENTE todos os strategy_signals e a linha de
+ * strategy_stats de qualquer strategy_id que NAO esteja na lista de
+ * ids validos atual. Destrutivo e irreversivel -- so deve ser chamado
+ * depois de conferir o resultado de getOrphanStrategyStats() e
+ * confirmar que sao mesmo estrategias antigas/renomeadas, nao um erro
+ * de digitacao na lista de ids validos. Retorna quantas linhas foram
+ * apagadas de cada tabela.
+ */
+async function deleteOrphanStrategyData(validIds) {
+  if (!ENABLED) return { signalsDeleted: 0, statsDeleted: 0 };
+  try {
+    const signalsRes = await pool.query(
+      `DELETE FROM strategy_signals WHERE strategy_id != ALL($1::text[])`,
+      [validIds]
+    );
+    const statsRes = await pool.query(
+      `DELETE FROM strategy_stats WHERE strategy_id != ALL($1::text[])`,
+      [validIds]
+    );
+    return { signalsDeleted: signalsRes.rowCount, statsDeleted: statsRes.rowCount };
+  } catch (err) {
+    console.error(`[persistence] falha ao apagar strategy_ids orfaos: ${err.message}`);
+    return { signalsDeleted: 0, statsDeleted: 0, error: err.message };
+  }
+}
+
+/**
  * Retorna a contagem de sinais resolvidos por dia (fuso horário do
  * Brasil), separados por tipo de desfecho — Win na hora (win_g0), Win
  * no gale (win_g1), Branco (win_white) e Loss. Usado pela tela de
@@ -551,19 +609,56 @@ async function checkAccess(email) {
  * estratégias na ferramentas.html — teste grátis nunca inclui as 14
  * estratégias detalhadas, só o Sinal ao vivo da Tela Início.
  */
+// Quantos dias, a partir da PRIMEIRA vez que o e-mail apareceu em
+// access_grants (created_at, nunca sobrescrito por upsertAccessFromWebhook),
+// a aba Ferramentas (estratégias detalhadas) fica travada pra
+// assinantes pagos -- alinhado com o prazo de reembolso de 7 dias da
+// LastLink + 1 dia de folga. Sem isso, dava pra assinar, copiar as 15
+// estratégias no mesmo dia e pedir reembolso em seguida, levando o
+// conteúdo pago sem custo nenhum. O Sinal ao vivo da Tela Início NUNCA
+// é afetado por essa trava (é a linha ética do projeto: o sinal em si
+// nunca fica atrás de paywall).
+const TOOLS_REFUND_LOCK_DAYS = 8;
+
+/**
+ * Calcula se a aba Ferramentas deve estar travada pra esse acesso, e
+ * até quando. Só se aplica a assinantes reais (source === 'lastlink')
+ * -- teste grátis (trial) já tem sua própria trava permanente e
+ * separada (nunca libera Ferramentas, não importa quantos dias
+ * passem), e testers manuais (source === 'tester', concedido na mão
+ * por confiança) ficam isentos dessa regra.
+ *
+ * LIMITAÇÃO CONHECIDA: se o mesmo e-mail pedir reembolso e assinar de
+ * novo depois, created_at não muda (upsertAccessFromWebhook nunca
+ * sobrescreve created_at), então a trava não reinicia numa
+ * re-assinatura. Aceitável por ora -- se isso virar um padrão de
+ * abuso real, o próximo passo seria gravar a data da assinatura ATUAL
+ * (não só a primeira) e usar essa data aqui.
+ */
+function computeToolsLock(source, createdAt) {
+  if (source !== 'lastlink' || !createdAt) {
+    return { toolsLocked: false, toolsUnlockAt: null };
+  }
+  const unlockAt = new Date(new Date(createdAt).getTime() + TOOLS_REFUND_LOCK_DAYS * 24 * 60 * 60 * 1000);
+  const locked = Date.now() < unlockAt.getTime();
+  return { toolsLocked: locked, toolsUnlockAt: unlockAt.toISOString() };
+}
+
 async function getAccessInfo(email) {
-  if (!ENABLED) return { active: false, source: null };
+  if (!ENABLED) return { active: false, source: null, toolsLocked: false, toolsUnlockAt: null };
   try {
     const res = await pool.query(
-      `SELECT active, source FROM access_grants
+      `SELECT active, source, created_at FROM access_grants
        WHERE email = $1 AND active = true AND (expires_at IS NULL OR expires_at > now())`,
       [String(email).toLowerCase().trim()]
     );
-    if (res.rows.length === 0) return { active: false, source: null };
-    return { active: true, source: res.rows[0].source };
+    if (res.rows.length === 0) return { active: false, source: null, toolsLocked: false, toolsUnlockAt: null };
+    const row = res.rows[0];
+    const { toolsLocked, toolsUnlockAt } = computeToolsLock(row.source, row.created_at);
+    return { active: true, source: row.source, toolsLocked, toolsUnlockAt };
   } catch (err) {
     console.error(`[persistence] falha ao checar acesso detalhado (${email}): ${err.message}`);
-    return { active: false, source: null };
+    return { active: false, source: null, toolsLocked: false, toolsUnlockAt: null };
   }
 }
 
@@ -589,6 +684,8 @@ module.exports = {
   getRecentResolvedSignals,
   upsertStrategyStats,
   getAllStrategyStats,
+  getOrphanStrategyStats,
+  deleteOrphanStrategyData,
   getDailySignalHistory,
   upsertAccessFromWebhook,
   grantTesterAccess,
