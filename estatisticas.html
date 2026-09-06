@@ -286,25 +286,26 @@ footer.disclaimer {
     catch (e) { return null; }
   }
 
-  function writeCache(email, active, source) {
-    try { localStorage.setItem(CACHE_KEY, JSON.stringify({ email: email, active: active, source: source || null, checkedAt: Date.now() })); }
+  function writeCache(email, active, source, toolsLocked, toolsUnlockAt) {
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify({ email: email, active: active, source: source || null, toolsLocked: !!toolsLocked, toolsUnlockAt: toolsUnlockAt || null, checkedAt: Date.now() })); }
     catch (e) {}
   }
 
-  function notifyAccessGranted(email, source) {
+  function notifyAccessGranted(email, source, toolsLocked, toolsUnlockAt) {
     // Guarda num global também, não só dispara o evento: se essa
     // função rodar antes do resto da página ter registrado o
     // addEventListener (comum no caminho síncrono do cache), o evento
     // se perderia. Quem for escutar confere esse global primeiro.
-    window.mentorAccessInfo = { email: email, source: source || null };
-    try { window.dispatchEvent(new CustomEvent('mentorAccessGranted', { detail: { email: email, source: source || null } })); }
+    var info = { email: email, source: source || null, toolsLocked: !!toolsLocked, toolsUnlockAt: toolsUnlockAt || null };
+    window.mentorAccessInfo = info;
+    try { window.dispatchEvent(new CustomEvent('mentorAccessGranted', { detail: info })); }
     catch (e) {}
   }
 
   function checkAccess(email) {
     return fetch(CHECK_ACCESS_URL + '?email=' + encodeURIComponent(email))
       .then(function(r) { return r.json(); })
-      .then(function(data) { return { active: !!data.active, source: data.source || null }; })
+      .then(function(data) { return { active: !!data.active, source: data.source || null, toolsLocked: !!data.toolsLocked, toolsUnlockAt: data.toolsUnlockAt || null }; })
       .catch(function() { return null; }); // null = falha de rede, não sabemos dizer
   }
 
@@ -316,10 +317,10 @@ footer.disclaimer {
         if (fromUserInput) setMsg('N\u00e3o deu pra confirmar agora. Tente de novo em instantes.', true);
         return;
       }
-      writeCache(email, result.active, result.source);
+      writeCache(email, result.active, result.source, result.toolsLocked, result.toolsUnlockAt);
       if (result.active) {
         hideOverlay();
-        notifyAccessGranted(email, result.source);
+        notifyAccessGranted(email, result.source, result.toolsLocked, result.toolsUnlockAt);
       } else if (fromUserInput) {
         setMsg('Esse e-mail ainda n\u00e3o tem acesso liberado.', true);
       }
@@ -329,7 +330,7 @@ footer.disclaimer {
   var cached = readCache();
   if (cached && cached.active && (Date.now() - cached.checkedAt) < RECHECK_AFTER_MS) {
     hideOverlay();
-    notifyAccessGranted(cached.email, cached.source);
+    notifyAccessGranted(cached.email, cached.source, cached.toolsLocked, cached.toolsUnlockAt);
   } else if (cached && cached.email) {
     if (emailInput) emailInput.value = cached.email;
     attemptUnlock(cached.email, false);
