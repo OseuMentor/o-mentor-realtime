@@ -709,9 +709,9 @@ const groups = [
       {
         id: 'number3',
         name: 'Number 3',
-        pattern: [{c:'red', l:'3'}, {c:'ghost'}, {c:'ghost'}, {c:'ghost'}],
+        pattern: [{c:'red', l:'3'}, {c:'ghost'}, {c:'ghost'}, {c:'ghost'}, {c:'black'}],
         entry: {c:'black'},
-        desc: 'Cai o número 3 (Vermelho) → conta 3 casas sem cair outro 3 (senão a contagem reseta) → a partir daí, ESPERA o Preto cair de verdade (pode ser na 4ª, 5ª casa, etc — não tem casa fixa) → entrada em Preto.',
+        desc: 'Cai o número 3 (Vermelho) → conta 3 casas sem cair outro 3 (se cair, reinicia a contagem a partir desse novo 3) → na 4ª casa precisa cair Preto (se vier Vermelho, a estratégia é cancelada) → entrada em Preto na 5ª casa, até Martingale 1.',
         tolerance: 'até 2 entradas/hora'
       },
       {
