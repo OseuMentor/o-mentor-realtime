@@ -903,18 +903,28 @@ function renderGroups(){
 }
 renderGroups();
 
-/* ---------------- Trava da aba Ferramentas (teste grátis OU período de garantia) ---------------- */
+/* ---------------- Trava da aba Ferramentas (teste grátis OU período de preparação) ---------------- */
 // Dois motivos possíveis pra travar a grade de estratégias, reaproveitando
 // o mesmo card visual (#trialLockCard), com texto/botão adaptados:
 //   1. source === 'trial'   -> trava permanente (teste grátis nunca inclui
 //      as estratégias detalhadas, só o Sinal ao vivo da Tela Início).
 //   2. toolsLocked === true -> trava temporária pros primeiros dias de uma
-//      assinatura paga (LastLink), alinhada com o prazo de reembolso deles
-//      -- evita assinar, copiar tudo no mesmo dia e pedir reembolso.
+//      assinatura paga, com liberação automática numa data específica.
+//      A mensagem aqui é deliberadamente enxuta: mostra a data de
+//      liberação, não o motivo/mecanismo por trás da trava.
 // Se o acesso já tiver sido confirmado ANTES desse script rodar (caminho
 // síncrono do cache do gate), window.mentorAccessInfo já existe -- aplica
 // direto. Se ainda não, escuta o evento que o gate dispara assim que a
 // confirmação (via fetch) chegar.
+function formatUnlockDate(isoString) {
+  try {
+    const d = new Date(isoString);
+    return new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' }).format(d);
+  } catch (e) {
+    return null;
+  }
+}
+
 function applyToolsLock(info) {
   var toolGroups = document.getElementById('toolGroups');
   var lockCard = document.getElementById('trialLockCard');
@@ -933,11 +943,11 @@ function applyToolsLock(info) {
   }
 
   if (info && info.toolsLocked && info.toolsUnlockAt) {
-    var msRestante = new Date(info.toolsUnlockAt).getTime() - Date.now();
-    var diasRestantes = Math.max(1, Math.ceil(msRestante / (24 * 60 * 60 * 1000)));
-    var plural = diasRestantes === 1 ? 'dia' : 'dias';
-    titleEl.textContent = 'Ferramentas liberadas em breve';
-    subEl.textContent = 'Por segurança, as estratégias detalhadas ficam disponíveis a partir do ' + TOOLS_LOCK_DAYS_LABEL + 'º dia da assinatura (mesmo prazo de garantia da LastLink). Faltam ' + diasRestantes + ' ' + plural + '. O Sinal ao vivo na Tela Início já está liberado normalmente.';
+    var dataFormatada = formatUnlockDate(info.toolsUnlockAt);
+    titleEl.textContent = 'Ferramentas chegando pra você';
+    subEl.textContent = dataFormatada
+      ? 'Suas estratégias detalhadas estão sendo preparadas e liberam automaticamente em ' + dataFormatada + '. O Sinal ao vivo na Tela Início já está no ar, funcionando normalmente.'
+      : 'Suas estratégias detalhadas estão sendo preparadas e liberam automaticamente em breve. O Sinal ao vivo na Tela Início já está no ar, funcionando normalmente.';
     if (btnEl) { btnEl.style.display = 'none'; }
     toolGroups.classList.add('trial-locked');
     lockCard.classList.add('show');
@@ -947,7 +957,6 @@ function applyToolsLock(info) {
   toolGroups.classList.remove('trial-locked');
   lockCard.classList.remove('show');
 }
-var TOOLS_LOCK_DAYS_LABEL = 8; // espelha TOOLS_REFUND_LOCK_DAYS do persistence.js -- só pro texto
 if (window.mentorAccessInfo) {
   applyToolsLock(window.mentorAccessInfo);
 }
