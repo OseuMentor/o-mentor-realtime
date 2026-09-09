@@ -26,7 +26,7 @@ const WINDOWS = { tendencia: 100, mini: 50, micro: 16 };
 const BUFFER_SIZE = 100;
 const PORT = process.env.PORT || 8081;
 const TRENDBOOST_THRESHOLD_PCT = 60; // limiar mínimo pra Tendência contar como confluência
-const FORCA_NUMEROS_THRESHOLD = 0.6; // limiar mínimo (60%) pra Força dos Números contar
+const FORCA_NUMEROS_THRESHOLD = 0.7; // limiar mínimo (70%) pra Força dos Números contar
 const INGEST_SECRET = process.env.INGEST_SECRET || '';
 
 // ---------------------------------------------------------------
@@ -577,7 +577,7 @@ class RealtimeGateway {
   // busca as últimas 10 vezes que esse número já tinha caído antes, e
   // vê a cor que veio depois de cada uma dessas ocorrências (Branco é
   // descartado da amostra, nunca substituído). Se uma cor tiver pelo
-  // menos 60% da amostra válida, essa é a força do número.
+  // menos 70% da amostra válida, essa é a força do número.
   //
   // DIFERENTE das Tendências e da Repetição do Gráfico: essa análise
   // tem autoridade própria e PODE decidir uma cor sozinha, mesmo sem
