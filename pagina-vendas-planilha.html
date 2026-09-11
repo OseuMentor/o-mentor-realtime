@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Planilha Inteligente — Diário da Virada Financeira</title>
+<meta name="description" content="Sistema de 8 abas pra organizar meta, stop, ciclos e evolução da sua banca, dia após dia. Gestão de risco, não fórmula mágica.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0B0714;
+    --bg-panel: #150E27;
+    --bg-panel-2: #1B1333;
+    --border: #2A2145;
+    --purple: #7C3AED;
+    --purple-deep: #4C1D95;
+    --purple-glow: rgba(124,58,237,0.35);
+    --teal: #2DD4BF;
+    --amber: #F5A524;
+    --text: #F4F2FA;
+    --text-muted: #9B93B5;
+    --text-dim: #6E6690;
+    --radius: 14px;
+    --font-display: 'Space Grotesk', sans-serif;
+    --font-body: 'Inter', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  *{ box-sizing: border-box; margin:0; padding:0; }
+  html{ scroll-behavior: smooth; }
+
+  body{
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  body::before{
+    content:"";
+    position: fixed;
+    top:-20%; left:50%;
+    width: 900px; height: 900px;
+    transform: translateX(-50%);
+    background: radial-gradient(circle, var(--purple-glow) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  a{ color: inherit; text-decoration: none; }
+  img{ max-width: 100%; display:block; }
+
+  .wrap{
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 0 24px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ===== NAV ===== */
+  header.nav{ padding: 28px 0; }
+  .nav-inner{ display:flex; align-items:center; justify-content: space-between; }
+  .logo{
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 18px;
+    letter-spacing: 0.02em;
+    display:flex; align-items:center; gap:10px;
+  }
+  .logo-dot{
+    width:8px; height:8px; border-radius:50%;
+    background: var(--teal);
+    box-shadow: 0 0 12px var(--teal);
+  }
+  .nav-support{
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  /* ===== HERO ===== */
+  .hero{
+    padding: 50px 0 70px;
+    display:grid;
+    grid-template-columns: 1.05fr 0.95fr;
+    gap: 56px;
+    align-items:center;
+  }
+  .eyebrow{
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--teal);
+    display:flex; align-items:center; gap:10px;
+    margin-bottom: 22px;
+  }
+  .eyebrow::before{ content:""; width: 22px; height:1px; background: var(--teal); }
+  h1{
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(32px, 4.4vw, 50px);
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    margin-bottom: 22px;
+  }
+  h1 .accent{ color: var(--teal); }
+  .hero-sub{
+    font-size: 17px;
+    color: var(--text-muted);
+    max-width: 480px;
+    margin-bottom: 34px;
+  }
+  .hero-ctas{ display:flex; gap: 16px; align-items:center; flex-wrap: wrap; margin-bottom: 28px; }
+  .btn-primary{
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 15px;
+    background: var(--teal);
+    color: #06231D;
+    border: none;
+    padding: 16px 28px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: transform .15s ease, box-shadow .15s ease;
+    display:inline-block;
+  }
+  .btn-primary:hover{ transform: translateY(-2px); box-shadow: 0 8px 24px rgba(45,212,191,0.25); }
+  .btn-primary:focus-visible{ outline: 2px solid var(--teal); outline-offset: 3px; }
+  .hero-meta{ font-family: var(--font-mono); font-size: 12px; color: var(--text-dim); }
+
+  .hero-visual img{
+    width: 100%;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+  }
+
+  @media (max-width: 860px){
+    .hero{ grid-template-columns: 1fr; padding-top: 30px; }
+  }
+
+  /* ===== SECTION SHARED ===== */
+  section{ padding: 64px 0; position: relative; z-index:1; }
+  .section-head{ max-width: 620px; margin-bottom: 44px; }
+  .section-head h2{
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(26px, 3vw, 34px);
+    line-height: 1.2;
+    margin-bottom: 14px;
+  }
+  .section-head p{ color: var(--text-muted); font-size: 16px; }
+
+  /* ===== PILARES (o que resolve) ===== */
+  .pilares{ display:grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .pilar{
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px 24px;
+    transition: border-color .2s ease, transform .2s ease;
+  }
+  .pilar:hover{ border-color: var(--purple); transform: translateY(-3px); }
+  .pilar-index{
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--teal);
+    letter-spacing: 0.1em;
+    margin-bottom: 16px;
+  }
+  .pilar h3{ font-family: var(--font-display); font-weight: 700; font-size: 18px; margin-bottom: 10px; }
+  .pilar p{ color: var(--text-muted); font-size: 14px; }
+  @media (max-width: 860px){ .pilares{ grid-template-columns: 1fr; } }
+
+  /* ===== AS 8 ABAS ===== */
+  .abas-grid{
+    display:grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  .aba-chip{
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-muted);
+    display:flex;
+    align-items:center;
+    gap: 10px;
+  }
+  .aba-chip strong{ color: var(--text); font-family: var(--font-body); font-weight:600; font-size: 13px; }
+  .aba-chip::before{
+    content:"";
+    width:6px; height:6px; border-radius:50%;
+    background: var(--teal);
+    flex-shrink:0;
+  }
+  @media (max-width: 860px){ .abas-grid{ grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 520px){ .abas-grid{ grid-template-columns: 1fr; } }
+
+  /* ===== GALERIA ===== */
+  .gallery{ display:grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .gallery-item{
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    transition: border-color .2s ease, transform .2s ease;
+  }
+  .gallery-item:hover{ border-color: var(--purple); transform: translateY(-3px); }
+  .gallery-item img{ width: 100%; display:block; }
+  .gallery-cap{ padding: 14px 16px 18px; font-size: 13px; color: var(--text-muted); }
+  @media (max-width: 860px){ .gallery{ grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 520px){ .gallery{ grid-template-columns: 1fr; } }
+
+  /* ===== O QUE ISSO NÃO É ===== */
+  .naoe{ background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 40px; }
+  .naoe-grid{ display:grid; grid-template-columns: repeat(2, 1fr); gap: 14px 32px; margin-top: 26px; }
+  .naoe-item{ display:flex; gap: 12px; align-items:flex-start; font-size: 14px; color: var(--text-muted); }
+  .naoe-x{ font-family: var(--font-mono); color: var(--amber); font-size: 13px; flex-shrink:0; margin-top: 2px; }
+  .naoe-item strong{ color: var(--text); font-weight: 600; }
+  @media (max-width: 700px){ .naoe{ padding: 26px; } .naoe-grid{ grid-template-columns: 1fr; } }
+
+  /* ===== FAQ ===== */
+  .faq-item{ border-bottom: 1px solid var(--border); }
+  .faq-item:first-child{ border-top: 1px solid var(--border); }
+  .faq-q{
+    width:100%; text-align:left; background:none; border:none;
+    color: var(--text); font-family: var(--font-body); font-weight: 600; font-size: 16px;
+    padding: 22px 0; display:flex; justify-content: space-between; align-items:center; cursor:pointer;
+  }
+  .faq-q:focus-visible{ outline: 2px solid var(--teal); outline-offset: 3px; }
+  .faq-icon{ font-family: var(--font-mono); color: var(--teal); font-size: 18px; transition: transform .2s ease; flex-shrink:0; margin-left: 16px; }
+  .faq-item.open .faq-icon{ transform: rotate(45deg); }
+  .faq-a{ max-height:0; overflow:hidden; transition: max-height .25s ease; }
+  .faq-a p{ color: var(--text-muted); font-size: 14px; padding-bottom: 22px; max-width: 640px; }
+
+  /* ===== PRICING ===== */
+  .pricing{
+    background: linear-gradient(160deg, var(--bg-panel-2), var(--bg-panel));
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 48px;
+    text-align:center;
+  }
+  .price-tag{
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .price-value{
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(40px, 6vw, 56px);
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+  .price-value span{ font-size: 18px; color: var(--text-muted); font-family: var(--font-body); font-weight: 400; }
+  .price-note{ font-size: 14px; color: var(--text-muted); margin-bottom: 30px; }
+  .disclaimer-box{
+    margin-top: 34px;
+    padding: 18px 22px;
+    border: 1px solid rgba(245,165,36,0.3);
+    background: rgba(245,165,36,0.06);
+    border-radius: 10px;
+    text-align:left;
+    display:flex;
+    gap: 12px;
+  }
+  .disclaimer-box .mark{ font-family: var(--font-mono); color: var(--amber); font-size: 14px; flex-shrink:0; }
+  .disclaimer-box p{ font-size: 13px; color: var(--text-muted); line-height:1.6; }
+  @media (max-width: 700px){ .pricing{ padding: 32px 24px; } }
+
+  /* ===== UPSELL PARA O APP ===== */
+  .addon{ background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .addon-body{ display:grid; grid-template-columns: 1.2fr 0.8fr; gap: 40px; padding: 40px; align-items:center; }
+  .addon-body h2{
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(24px, 3vw, 30px);
+    line-height: 1.2;
+    margin-bottom: 14px;
+  }
+  .addon-body h2 .accent{ color: var(--teal); }
+  .addon-body p{ color: var(--text-muted); font-size: 15px; margin-bottom: 14px; }
+  .addon-note{ font-family: var(--font-mono); font-size: 12px; color: var(--text-dim); letter-spacing: 0.02em; }
+  .addon-visual img{ width: 100%; border-radius: 10px; border: 1px solid var(--border); display:block; }
+  @media (max-width: 860px){ .addon-body{ grid-template-columns: 1fr; padding: 28px 24px; } }
+
+  /* ===== FOOTER ===== */
+  footer{ padding: 40px 0 60px; border-top: 1px solid var(--border); margin-top: 40px; }
+  .footer-inner{ display:flex; justify-content: space-between; align-items:center; flex-wrap: wrap; gap: 16px; }
+  .footer-inner p{ font-family: var(--font-mono); font-size: 12px; color: var(--text-dim); }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation: none !important; transition: none !important; }
+    html{ scroll-behavior: auto; }
+  }
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap nav-inner">
+    <div class="logo"><span class="logo-dot"></span>O SEU MENTOR</div>
+    <div class="nav-support">SUPORTE: jeff.gold.new@gmail.com</div>
+  </div>
+</header>
+
+<main>
+  <section class="hero wrap">
+    <div>
+      <div class="eyebrow">Planilha Inteligente</div>
+      <h1>Sua banca organizada.<br>Seu <span class="accent">processo</span> visível.</h1>
+      <p class="hero-sub">Diário da Virada Financeira: um sistema de 8 abas pra registrar meta, stop, ciclos e evolução da sua banca todo dia — sem depender de memória, papel ou planilha solta.</p>
+      <div class="hero-ctas">
+        <a href="#planos" class="btn-primary">Quero minha Planilha</a>
+      </div>
+      <div class="hero-meta">ACESSO IMEDIATO · CÓPIA PRÓPRIA NO SEU GOOGLE DRIVE</div>
+    </div>
+
+    <div class="hero-visual">
+      <img src="assets/imagens/planilha-diario-da-virada-financeira-capa.png" alt="Capa da Planilha Inteligente Diário da Virada Financeira" loading="lazy">
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="section-head">
+      <h2>O que a planilha organiza pra você</h2>
+      <p>Três frentes que substituem achismo por controle da sua banca.</p>
+    </div>
+    <div class="pilares">
+      <div class="pilar">
+        <div class="pilar-index">01 · META E STOP</div>
+        <h3>Limite definido antes de começar</h3>
+        <p>Você define meta e stop diário na aba Config — e a planilha te avisa quando bater em qualquer um dos dois. Decisão tomada antes do calor do momento.</p>
+      </div>
+      <div class="pilar">
+        <div class="pilar-index">02 · CICLOS</div>
+        <h3>Sua banca dividida em etapas</h3>
+        <p>Acompanhe ciclos e metas mensais separados do dia a dia, pra enxergar evolução real — não só o resultado de hoje.</p>
+      </div>
+      <div class="pilar">
+        <div class="pilar-index">03 · HISTÓRICO</div>
+        <h3>Todo dia registrado, sem esconder nada</h3>
+        <p>Diário completo com gráfico de evolução — pra você revisar o que funcionou e o que não funcionou, com dado na mão.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="section-head">
+      <h2>8 abas, cada uma com uma função</h2>
+      <p>Nada solto, nada duplicado. Um sistema fechado de gestão de banca.</p>
+    </div>
+    <div class="abas-grid">
+      <div class="aba-chip"><strong>Diário</strong></div>
+      <div class="aba-chip"><strong>Config</strong></div>
+      <div class="aba-chip"><strong>Planilha Meta</strong></div>
+      <div class="aba-chip"><strong>Semana</strong></div>
+      <div class="aba-chip"><strong>Gráfico</strong></div>
+      <div class="aba-chip"><strong>Horários</strong></div>
+      <div class="aba-chip"><strong>Ciclos</strong></div>
+      <div class="aba-chip"><strong>Meta Mês</strong></div>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="section-head">
+      <h2>Veja a planilha por dentro</h2>
+      <p>Preenchimento simples, leitura direta — sem fórmula pra você mexer.</p>
+    </div>
+    <div class="gallery">
+      <div class="gallery-item">
+        <img src="assets/imagens/2_Planilha_Diario.png" alt="Aba Diário da Planilha Inteligente mostrando registro dia a dia da banca" loading="lazy">
+        <div class="gallery-cap">Registro diário, direto e simples.</div>
+      </div>
+      <div class="gallery-item">
+        <img src="assets/imagens/3_Planilha_Grafico.png" alt="Aba Gráfico da Planilha Inteligente mostrando evolução da banca" loading="lazy">
+        <div class="gallery-cap">Gráfico de evolução da sua banca.</div>
+      </div>
+      <div class="gallery-item">
+        <img src="assets/imagens/5_Planilha_Ciclos.png" alt="Aba Ciclos da Planilha Inteligente organizando etapas da banca" loading="lazy">
+        <div class="gallery-cap">Ciclos organizados, etapa por etapa.</div>
+      </div>
+      <div class="gallery-item">
+        <img src="assets/imagens/1_Planilha_Protocolo10.png" alt="Aba Protocolo 10 da Planilha Inteligente" loading="lazy">
+        <div class="gallery-cap">Protocolo de meta aplicado na prática.</div>
+      </div>
+      <div class="gallery-item">
+        <img src="assets/imagens/4_Planilha_Abas.png" alt="Visão geral das 8 abas da Planilha Inteligente" loading="lazy">
+        <div class="gallery-cap">As 8 abas, todas conectadas.</div>
+      </div>
+      <div class="gallery-item">
+        <img src="assets/imagens/capa_abas_planilha.png" alt="Visão consolidada das abas da Planilha Inteligente" loading="lazy">
+        <div class="gallery-cap">Um sistema fechado — nada solto.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="naoe">
+      <div class="section-head" style="margin-bottom:0;">
+        <h2>O que isso não é</h2>
+        <p>A régua de compliance é a mesma do Mentor: nada de promessa vazia.</p>
+      </div>
+      <div class="naoe-grid">
+        <div class="naoe-item"><span class="naoe-x">✕</span><span><strong>Não</strong> é fórmula infalível ou promessa de lucro.</span></div>
+        <div class="naoe-item"><span class="naoe-x">✕</span><span><strong>Não</strong> substitui sua disciplina — só organiza o processo.</span></div>
+        <div class="naoe-item"><span class="naoe-x">✕</span><span><strong>Não</strong> exige experiência prévia em planilha ou fórmula.</span></div>
+        <div class="naoe-item"><span class="naoe-x">✕</span><span><strong>Não</strong> trava seu Drive — a cópia é 100% sua, editável à vontade.</span></div>
+      </div>
+      <p style="margin-top:26px; font-size:14px; color:var(--text-muted); max-width:640px;">
+        É uma ferramenta de organização e gestão de risco. O resultado final depende sempre da sua disciplina e responsabilidade.
+      </p>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="section-head">
+      <h2>Perguntas frequentes</h2>
+    </div>
+    <div class="faq-list">
+      <div class="faq-item">
+        <button class="faq-q" aria-expanded="false">Preciso saber usar Google Sheets?<span class="faq-icon">+</span></button>
+        <div class="faq-a"><p>Não. Você só precisa preencher os campos indicados — todo cálculo, meta e gráfico já vem pronto. Nenhuma fórmula pra você mexer.</p></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" aria-expanded="false">Como recebo a planilha?<span class="faq-icon">+</span></button>
+        <div class="faq-a"><p>Direto após a confirmação do pagamento, você recebe um link pra fazer uma cópia própria da planilha no seu Google Drive — fica 100% sua, editável à vontade.</p></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" aria-expanded="false">Funciona sem o app O Seu Mentor?<span class="faq-icon">+</span></button>
+        <div class="faq-a"><p>Sim. A planilha é independente e serve pra organizar sua banca mesmo sem assinar o Mentor. Só que os dois juntos entregam o pacote completo: dado em tempo real + gestão de banca.</p></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" aria-expanded="false">É pagamento único ou recorrente?<span class="faq-icon">+</span></button>
+        <div class="faq-a"><p>Pagamento único. Você paga uma vez e a cópia fica pra sempre no seu Drive, sem mensalidade.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="addon">
+      <div class="addon-body">
+        <div>
+          <h2>Quer <span class="accent">dado em tempo real</span> além da gestão de banca?</h2>
+          <p>A Planilha organiza seu processo. O Seu Mentor te dá o sinal e a análise estatística ao vivo pra decidir com informação, não no impulso. Os dois juntos formam o pacote completo de disciplina + dado.</p>
+          <div class="addon-note">DISPONÍVEL COMO ASSINATURA MENSAL — CONHEÇA O MENTOR</div>
+        </div>
+        <div class="addon-visual">
+          <img src="assets/imagens/4_Estatisticas_Ranking_Adaptativo.png" alt="Painel de estatísticas do app O Seu Mentor" loading="lazy">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap" id="planos">
+    <div class="pricing">
+      <div class="price-tag">Acesso Único</div>
+      <div class="price-value">R$ 19<span>,90</span></div>
+      <div class="price-note">Pagamento único. Cópia sua, pra sempre, no seu Google Drive.</div>
+      <a href="#" class="btn-primary">Quero minha Planilha</a>
+
+      <div class="disclaimer-box">
+        <span class="mark">!</span>
+        <p>A Planilha Inteligente não garante lucro nem resultado certo — isso simplesmente não existe. É uma ferramenta de organização e gestão de risco. O resultado final depende sempre de disciplina e responsabilidade sua.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap footer-inner">
+    <p>© O SEU MENTOR — TODOS OS DIREITOS RESERVADOS</p>
+    <p>SUPORTE: jeff.gold.new@gmail.com</p>
+  </div>
+</footer>
+
+<script>
+  document.querySelectorAll('.faq-q').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var item = btn.closest('.faq-item');
+      var answer = item.querySelector('.faq-a');
+      var isOpen = item.classList.contains('open');
+
+      document.querySelectorAll('.faq-item.open').forEach(function(openItem){
+        if(openItem !== item){
+          openItem.classList.remove('open');
+          openItem.querySelector('.faq-a').style.maxHeight = null;
+          openItem.querySelector('.faq-q').setAttribute('aria-expanded','false');
+        }
+      });
+
+      if(isOpen){
+        item.classList.remove('open');
+        answer.style.maxHeight = null;
+        btn.setAttribute('aria-expanded','false');
+      } else {
+        item.classList.add('open');
+        answer.style.maxHeight = answer.scrollHeight + 'px';
+        btn.setAttribute('aria-expanded','true');
+      }
+    });
+  });
+</script>
+
+</body>
+</html>
