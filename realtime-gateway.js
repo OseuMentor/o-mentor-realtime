@@ -9,6 +9,12 @@
  * statsBatchJob.js (Fase 2) pra calcular % de acerto real e o peso
  * adaptativo de cada estratégia.
  *
+ * v4: o ciclo do card "Sinal" (entrada -> gale -> Win/G1/Branco/Loss
+ * -> cooldown) agora roda AQUI, no servidor, via signalEngine.js. Todos
+ * os usuários veem o mesmo sinal, e o Histórico / Resumo de Hoje contam
+ * só esses sinais (tabela app_signals). Também ignora resultado
+ * duplicado (mesmo uuid do TipMiner) antes de processar.
+ *
  * O double-worker.js fica preservado no repositório como fallback
  * documentado, mas não é mais iniciado por padrão.
  */
@@ -18,6 +24,7 @@ const { WebSocketServer } = require('ws');
 const { analyzeAll } = require('./pattern-engine');
 const persistence = require('./persistence');
 const strategyTracker = require('./strategyTracker');
+const { SignalEngine } = require('./signalEngine');
 const statsBatchJob = require('./statsBatchJob');
 const { STRATEGY_META } = require('./strategyMeta');
 const lastlinkWebhook = require('./lastlinkWebhook');
@@ -84,6 +91,12 @@ class RealtimeGateway {
     this.buffer = [];
     this.lastStatus = { connected: false, reason: 'aguardando primeiro resultado' };
 
+    // Card "Sinal": quando o estado muda sem resultado novo (a mensagem
+    // de Win/G1/Branco/Loss expirou e entrou o cooldown), avisa todo mundo.
+    this.signalEngine = new SignalEngine({
+      onChange: (signal) => this._broadcast({ type: 'signal', signal }),
+    });
+
     this.httpServer = http.createServer((req, res) => this._handleHttp(req, res));
     this.wss = new WebSocketServer({ server: this.httpServer });
     this.wss.on('connection', (client) => this._onClientConnect(client));
@@ -113,6 +126,14 @@ class RealtimeGateway {
       console.error(`[gateway] falha ao repopular buffer do banco: ${err.message}`);
       // Nao trava a inicializacao -- pior caso, o buffer comeca vazio
       // como sempre comecou antes dessa melhoria.
+    }
+
+    // Retoma um sinal que estava aberto se o servidor reiniciou no meio
+    // de uma entrada (descarta os muito antigos).
+    try {
+      await this.signalEngine.init();
+    } catch (err) {
+      console.error(`[gateway] falha ao iniciar signalEngine: ${err.message}`);
     }
 
     statsBatchJob.start();
@@ -291,13 +312,13 @@ class RealtimeGateway {
     }
   }
 
-  // Contagem de sinais resolvidos por dia (fuso Brasília, já tratado na
-  // query do persistence.js), separados por tipo de resultado — Win na
-  // hora (G0), Win no gale (G1), Branco (proteção) e Loss. Dado público
-  // e só leitura, mesma lógica de CORS do /stats.
+  // Contagem por dia (fuso Brasília, já tratado na query do
+  // persistence.js) dos sinais que o card "Sinal" realmente mostrou.
+  // Cada sinal cai em UMA coluna só: Win (1ª casa), G1, Branco ou Loss.
+  // Dado público e só leitura, mesma lógica de CORS do /stats.
   async _handleHistory(req, res) {
     try {
-      const rows = await persistence.getDailySignalHistory();
+      const rows = await persistence.getDailyAppSignalHistory();
       const days = rows.map((r) => {
         const win = Number(r.win);
         const g1 = Number(r.g1);
@@ -424,12 +445,24 @@ class RealtimeGateway {
       trends,
       strategies: analysis.strategies,
       confluence,
+      signal: this.signalEngine.getPublicState(),
     });
   }
 
   // ---------- Novo resultado ----------
 
   async _handleNewResult(result) {
+    // Ignora resultado já processado (mesmo uuid do TipMiner). Se o SSE
+    // reenviar o último resultado ao reconectar, sem isso o sinal
+    // avançaria duas vezes com a mesma casa (ex: 1ª casa errada + gale
+    // "errado" no mesmo resultado = Loss falso). A checagem é síncrona,
+    // antes de qualquer await, então nem duas requisições simultâneas
+    // com o mesmo uuid passam.
+    const uuid = result.raw && result.raw.uuid;
+    if (uuid && this.buffer.some((r) => r.raw && r.raw.uuid === uuid)) {
+      return { strategies: [], confluence: { color: null, count: 0, strategies: [] } };
+    }
+
     this.buffer.push(result);
     if (this.buffer.length > BUFFER_SIZE) this.buffer.shift();
 
@@ -451,12 +484,22 @@ class RealtimeGateway {
     const trends = this._calcTrends();
     const confluence = await this._buildFinalConfluence(analysis.confluence, trends, result);
 
+    // Card "Sinal": resolve o sinal em andamento com este resultado e,
+    // se não houver nenhum, considera abrir um novo com a confluência
+    // final. Falha aqui nunca pode derrubar o broadcast em tempo real.
+    try {
+      await this.signalEngine.processResult(result, confluence);
+    } catch (err) {
+      console.error(`[gateway] falha no signalEngine: ${err.message}`);
+    }
+
     const payload = {
       type: 'new_result',
       result,
       trends,
       strategies: analysis.strategies,
       confluence,
+      signal: this.signalEngine.getPublicState(),
     };
     this._broadcast(payload);
 
