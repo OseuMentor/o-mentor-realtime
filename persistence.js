@@ -118,6 +118,31 @@ async function initDb() {
     );
   `);
 
+  // Sinais que o app REALMENTE mostrou no card "Sinal" da Tela Início
+  // (uma linha por sinal, com um único desfecho). É a ÚNICA fonte do
+  // Histórico e do Resumo de Hoje -- diferente de strategy_signals, que
+  // guarda a entrada interna de cada estratégia e serve só ao ranking
+  // de Estatísticas.
+  //   phase:   'entrada' | 'gale' | 'resolvido' | 'descartado'
+  //   outcome: 'win' (1ª casa) | 'g1' | 'branco' | 'loss' | NULL (em aberto)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS app_signals (
+      id BIGSERIAL PRIMARY KEY,
+      entry_color TEXT NOT NULL,
+      confluence_count INT NOT NULL DEFAULT 1,
+      sources JSONB,
+      phase TEXT NOT NULL DEFAULT 'entrada',
+      outcome TEXT,
+      opened_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      resolved_at TIMESTAMPTZ
+    );
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_app_signals_resolved_at
+    ON app_signals (resolved_at);
+  `);
+
   // Controle de acesso ao app: quem pode entrar. Duas origens possíveis
   // (coluna "source"): 'lastlink' (assinante pago, mantido pelo webhook
   // da LastLink) e 'tester' (acesso gratuito dado na mão, com prazo de
@@ -138,7 +163,7 @@ async function initDb() {
     );
   `);
 
-  console.log('[persistence] tabelas double_results, strategy_signals, strategy_stats e access_grants prontas.');
+  console.log('[persistence] tabelas double_results, strategy_signals, app_signals, strategy_stats e access_grants prontas.');
 }
 
 /**
@@ -497,6 +522,124 @@ async function getDailySignalHistory(limit = 60) {
 }
 
 /**
+ * Abre um sinal do card "Sinal". Retorna o id da linha (ou null se o
+ * banco estiver desligado/falhar -- o card continua funcionando em
+ * memória, só não entra na contagem).
+ */
+async function openAppSignal({ entryColor, confluenceCount, sources, openedAt }) {
+  if (!ENABLED) return null;
+  try {
+    const res = await pool.query(
+      `INSERT INTO app_signals (entry_color, confluence_count, sources, phase, opened_at)
+       VALUES ($1, $2, $3, 'entrada', $4)
+       RETURNING id`,
+      [entryColor, confluenceCount, sources || null, openedAt || new Date()]
+    );
+    return res.rows[0].id;
+  } catch (err) {
+    console.error(`[persistence] falha ao abrir sinal do app: ${err.message}`);
+    return null;
+  }
+}
+
+/** A 1ª casa errou: o sinal foi pro gale (ainda não conta nada). */
+async function markAppSignalGale(signalId) {
+  if (!ENABLED || !signalId) return;
+  try {
+    await pool.query(`UPDATE app_signals SET phase = 'gale' WHERE id = $1`, [signalId]);
+  } catch (err) {
+    console.error(`[persistence] falha ao marcar gale do sinal do app: ${err.message}`);
+  }
+}
+
+/**
+ * Fecha o sinal com o desfecho final: 'win' | 'g1' | 'branco' | 'loss'.
+ * O WHERE outcome IS NULL garante que um sinal nunca seja resolvido
+ * duas vezes, mesmo se essa função for chamada em duplicidade.
+ */
+async function resolveAppSignal(signalId, outcome) {
+  if (!ENABLED || !signalId) return;
+  try {
+    await pool.query(
+      `UPDATE app_signals
+       SET phase = 'resolvido', outcome = $2, resolved_at = now()
+       WHERE id = $1 AND outcome IS NULL`,
+      [signalId, outcome]
+    );
+  } catch (err) {
+    console.error(`[persistence] falha ao resolver sinal do app: ${err.message}`);
+  }
+}
+
+/** Sinal ainda em aberto (entrada/gale), se existir -- usado ao reiniciar. */
+async function getOpenAppSignal() {
+  if (!ENABLED) return null;
+  try {
+    const res = await pool.query(
+      `SELECT id, entry_color, confluence_count, phase, opened_at
+       FROM app_signals
+       WHERE outcome IS NULL AND phase IN ('entrada', 'gale')
+       ORDER BY opened_at DESC
+       LIMIT 1`
+    );
+    return res.rows[0] || null;
+  } catch (err) {
+    console.error(`[persistence] falha ao buscar sinal aberto do app: ${err.message}`);
+    return null;
+  }
+}
+
+/**
+ * Sinais abertos há mais de "maxAgeMs" (ex: servidor ficou fora do ar
+ * no meio de uma entrada) ficam 'descartado' e NÃO entram em nenhuma
+ * contagem -- não dá pra saber o desfecho real.
+ */
+async function discardStaleAppSignals(maxAgeMs) {
+  if (!ENABLED) return;
+  try {
+    await pool.query(
+      `UPDATE app_signals
+       SET phase = 'descartado'
+       WHERE outcome IS NULL AND phase IN ('entrada', 'gale')
+         AND opened_at < now() - ($1 || ' milliseconds')::interval`,
+      [String(maxAgeMs)]
+    );
+  } catch (err) {
+    console.error(`[persistence] falha ao descartar sinais antigos do app: ${err.message}`);
+  }
+}
+
+/**
+ * Histórico diário (fuso de Brasília) dos sinais do card "Sinal".
+ * Cada sinal cai em UMA única coluna: win (1ª casa), g1, branco ou
+ * loss. Usado pela tela de Histórico e pelo Resumo de Hoje.
+ */
+async function getDailyAppSignalHistory(limit = 60) {
+  if (!ENABLED) return [];
+  try {
+    const res = await pool.query(
+      `SELECT
+         to_char(resolved_at AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM-DD') AS date,
+         COUNT(*) FILTER (WHERE outcome = 'win')::int AS win,
+         COUNT(*) FILTER (WHERE outcome = 'g1')::int AS g1,
+         COUNT(*) FILTER (WHERE outcome = 'branco')::int AS branco,
+         COUNT(*) FILTER (WHERE outcome = 'loss')::int AS loss,
+         COUNT(*)::int AS total
+       FROM app_signals
+       WHERE outcome IN ('win', 'g1', 'branco', 'loss')
+       GROUP BY date
+       ORDER BY date DESC
+       LIMIT $1`,
+      [limit]
+    );
+    return res.rows;
+  } catch (err) {
+    console.error(`[persistence] falha ao ler historico diario dos sinais do app: ${err.message}`);
+    return [];
+  }
+}
+
+/**
  * Grava/atualiza o acesso de um e-mail a partir de um evento vindo do
  * webhook da LastLink. "active" já vem decidido por quem chamou
  * (lastlinkWebhook.js interpreta o campo Event antes de chegar aqui).
@@ -687,6 +830,12 @@ module.exports = {
   getOrphanStrategyStats,
   deleteOrphanStrategyData,
   getDailySignalHistory,
+  openAppSignal,
+  markAppSignalGale,
+  resolveAppSignal,
+  getOpenAppSignal,
+  discardStaleAppSignals,
+  getDailyAppSignalHistory,
   upsertAccessFromWebhook,
   grantTesterAccess,
   grantTrialAccess,
