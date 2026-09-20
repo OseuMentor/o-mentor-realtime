@@ -516,14 +516,18 @@ let ws = null;
 let reconnectDelay = 2000;
 let lastMessageAt = Date.now();
 
-// ---------- Painel de Sinal (entrada / gale / win / branco / loss / cooldown) ----------
-// activeSignal.phase percorre: 'entrada' -> 'gale' (se bater a cor oposta)
-// -> 'win' | 'branco' | 'loss' -> 'cooldown' (período de "análise" antes de
-// liberar um sinal novo). Enquanto phase for 'entrada', 'gale' ou
-// 'cooldown' não abrimos um sinal novo.
+// ---------- Painel de Sinal (entrada / gale / resultado / cooldown) ----------
+// O ciclo do sinal roda no SERVIDOR (signalEngine.js): todos os usuários
+// veem o mesmo sinal, ele sobrevive a recarregar a página, e o Histórico
+// e o Resumo de Hoje contam exatamente os sinais mostrados aqui. Este
+// script só desenha o estado que o servidor manda (msg.signal).
+//
+// activeSignal.phase: 'entrada' | 'gale' | 'resultado' | 'cooldown'
+// (null quando não há sinal). Em 'resultado', activeSignal.outcome é
+// 'win' (1ª casa) | 'g1' | 'branco' | 'loss'.
 let activeSignal = null;
-let signalResetTimer = null;
-const COOLDOWN_HOUSES = 4; // quantos resultados esperar analisando antes de liberar um sinal novo
+let lastStrategies = null;
+let lastConfluence = null;
 
 function corNomeSinal(cor) {
   return cor === 'red' ? 'Vermelho' : cor === 'black' ? 'Preto' : 'Branco';
@@ -550,7 +554,7 @@ function renderSignal() {
   panel.classList.add('is-live');
   const dotClass = activeSignal.color === 'black' ? 'black' : activeSignal.color === 'white' ? 'white' : 'red';
   const corNome = corNomeSinal(activeSignal.color);
-  const horaLabel = activeSignal.entryTime ? `<div class="signal-time">Entrada às ${activeSignal.entryTime}</div>` : '';
+  const horaLabel = activeSignal.entryTime ? `<div class="signal-time">Entrada às ${fmtTime(activeSignal.entryTime)}</div>` : '';
 
   if (activeSignal.phase === 'entrada' || activeSignal.phase === 'gale') {
     const actionLabel = activeSignal.phase === 'gale' ? 'FAZER MARTINGALE' : 'ENTRADA CONFIRMADA';
@@ -563,80 +567,29 @@ function renderSignal() {
       <div class="signal-confluence">${activeSignal.confluenceCount} sinal(is) de confluência</div>
       ${horaLabel}
     `;
-  } else if (activeSignal.phase === 'win') {
-    body.innerHTML = `<div class="signal-result win">✅ WIN!</div>${horaLabel}`;
-  } else if (activeSignal.phase === 'branco') {
-    body.innerHTML = `<div class="signal-result branco">🎉 Boaaa Branquinho no Bolso!</div>${horaLabel}`;
-  } else if (activeSignal.phase === 'loss') {
-    body.innerHTML = `<div class="signal-result loss">💙 Calma, faz parte do Game</div>${horaLabel}`;
-  }
-}
-
-// Abre um sinal novo se não houver nenhum em andamento (incluindo o
-// período de análise pós-resultado) e a confluência atual apontar pra
-// alguma cor.
-function maybeStartSignal(confluence, resultTimestamp) {
-  // Bloqueia abrir sinal novo enquanto QUALQUER sinal estiver em
-  // andamento — não importa a fase (entrada, gale, win, branco, loss
-  // ou cooldown). Antes essa checagem só cobria 'entrada'/'gale'/
-  // 'cooldown', o que deixava uma brecha: se uma confluência nova
-  // batesse bem no instante em que o sinal virava 'win' (ou 'branco'/
-  // 'loss'), um sinal novo era aberto na hora, apagando a mensagem de
-  // resultado antes do usuário conseguir ver.
-  if (activeSignal) return;
-  if (!confluence || !confluence.color || !confluence.count) return;
-  clearTimeout(signalResetTimer);
-  activeSignal = {
-    color: confluence.color,
-    confluenceCount: confluence.count,
-    phase: 'entrada',
-    entryTime: fmtTime(resultTimestamp),
-  };
-  renderSignal();
-}
-
-// Avalia o resultado que acabou de sair contra o sinal em aberto (se
-// houver), ou decrementa a contagem do período de análise (cooldown).
-// Branco sempre "protege" (conta como Win, por isso o texto especial).
-function evaluateResult(result) {
-  if (!activeSignal) return;
-
-  if (activeSignal.phase === 'cooldown') {
-    activeSignal.remaining -= 1;
-    if (activeSignal.remaining <= 0) {
-      activeSignal = null;
+  } else if (activeSignal.phase === 'resultado') {
+    if (activeSignal.outcome === 'win') {
+      body.innerHTML = `<div class="signal-result win">✅ WIN!</div>${horaLabel}`;
+    } else if (activeSignal.outcome === 'g1') {
+      body.innerHTML = `<div class="signal-result win">✅ WIN no G1!</div>${horaLabel}`;
+    } else if (activeSignal.outcome === 'branco') {
+      body.innerHTML = `<div class="signal-result branco">🎉 Boaaa Branquinho no Bolso!</div>${horaLabel}`;
+    } else {
+      body.innerHTML = `<div class="signal-result loss">💙 Calma, faz parte do Game</div>${horaLabel}`;
     }
-    renderSignal();
-    return;
   }
+}
 
-  if (activeSignal.phase !== 'entrada' && activeSignal.phase !== 'gale') return;
-
-  if (result.color === activeSignal.color) {
-    activeSignal.phase = 'win';
-  } else if (result.color === 'white') {
-    activeSignal.phase = 'branco';
-  } else if (activeSignal.phase === 'entrada') {
-    // Errou a primeira casa: vai pro gale (G1), ainda não resolve.
-    activeSignal.phase = 'gale';
-    renderSignal();
-    return;
-  } else {
-    activeSignal.phase = 'loss';
-  }
-
+// Aplica o estado do sinal vindo do servidor. Quando um sinal acaba de
+// ser resolvido, atualiza na hora o "Resumo de Hoje" (o servidor só
+// avisa depois de gravar o desfecho no banco).
+function applySignalState(sig) {
+  const prevPhase = activeSignal ? activeSignal.phase : null;
+  activeSignal = (sig && sig.phase && sig.phase !== 'idle') ? sig : null;
   renderSignal();
-  clearTimeout(signalResetTimer);
-  // Mostra a mensagem de resultado (Win/Branco/Loss) por alguns segundos,
-  // depois entra no período de "análise" contado em resultados reais
-  // (não em tempo), pra não abrir um sinal novo em cima da emoção do
-  // resultado anterior.
-  signalResetTimer = setTimeout(() => {
-    if (!activeSignal) return;
-    activeSignal.phase = 'cooldown';
-    activeSignal.remaining = COOLDOWN_HOUSES;
-    renderSignal();
-  }, 4000);
+  if (activeSignal && activeSignal.phase === 'resultado' && prevPhase !== 'resultado') {
+    fetchTodaySummary();
+  }
 }
 
 // Aviso de conexão discreto: some por padrão. Só aparece se a conexão
@@ -662,22 +615,29 @@ function connect() {
     const msg = JSON.parse(evt.data);
     if (msg.type === 'snapshot') {
       results = (msg.history || []).slice(-MAX_HISTORY);
+      lastStrategies = msg.strategies;
+      lastConfluence = msg.confluence;
       renderTicker();
       renderTrendsFromServer(msg.trends);
+      applySignalState(msg.signal);
       renderFeaturedPanel(msg.strategies, msg.confluence);
     } else if (msg.type === 'new_result') {
       updateResultsBuffer(msg.result);
+      lastStrategies = msg.strategies;
+      lastConfluence = msg.confluence;
       renderTicker();
       renderTrendsFromServer(msg.trends);
-      // Resolve primeiro o sinal já em aberto (é a "próxima casa" depois
-      // da entrada ou do gale) e só depois considera abrir um sinal novo
-      // com base na confluência atual -- isso precisa acontecer ANTES de
-      // renderizar o painel de destaque, pra ele já refletir corretamente
-      // se acabou de resolver (esconde nome/badges) ou se abriu agora
-      // (mostra nome/badges), no mesmo ciclo, sem esperar a próxima casa.
-      evaluateResult(msg.result);
-      maybeStartSignal(msg.confluence, msg.result.timestamp);
+      // O servidor já resolveu o sinal em aberto com este resultado (e
+      // abriu um novo, se for o caso) -- só desenhamos o estado. Isso
+      // precisa vir ANTES do painel de destaque, pra ele refletir se o
+      // sinal acabou de resolver (esconde nome/badges) ou de abrir.
+      applySignalState(msg.signal);
       renderFeaturedPanel(msg.strategies, msg.confluence);
+    } else if (msg.type === 'signal') {
+      // Mudança de estado sem resultado novo (a mensagem de resultado
+      // expirou e entrou o período de reavaliação).
+      applySignalState(msg.signal);
+      renderFeaturedPanel(lastStrategies, lastConfluence);
     } else if (msg.type === 'status') {
       setConnectionAlert(msg.status.connected);
     }
